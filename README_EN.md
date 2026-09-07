@@ -29,6 +29,7 @@
 
 </div>
 
+-   [How this differs from pot](#how-this-differs-from-pot)
 -   [Usage](#usage)
 -   [Features](#features)
 -   [Supported Services](#supported-services)
@@ -39,6 +40,66 @@
 -   [Internationalization](#internationalizationweblate)
 -   [Contributors](#contributors)
 -   [Thanks](#thanks)
+
+<div align="center">
+
+# How this differs from pot
+
+</div>
+
+Gloss is a modified version of [pot](https://github.com/pot-app/pot-desktop), released under the GPL-3.0 like the original. The name is the word for the annotation written beside a difficult line — an interlinear gloss — which is what the in-place image translation does.
+
+As of 4.3.0 this repository carries **122 commits** of changes on top of upstream. The substantial ones:
+
+### Platform and framework
+
+Upstream is Tauri 1.8 with NextUI and Tailwind 3. Gloss moved to **Tauri 2**, **React 19 with HeroUI v3** and **Tailwind 4**, and upgraded the Rust dependencies with it. Not upgrades for their own sake: Tauri 2's plugin model and v3's CSS-first theming are what the rest of this list is built on.
+
+### New features
+
+-   **Glossary** — terms rendered the way you want them. LLM services get them as an instruction so the model applies them while translating; every other engine has them applied to the result, which covers the proper nouns and jargon those engines pass through untranslated anyway
+-   **In-place image translation** — the translation painted back over the captured image, where the original text was. Windows and Linux
+-   **Selection replacement** — a hotkey that translates the selected text and types the translation back over it, with no window ever appearing. Unbound by default, Windows only for now
+-   A **translation cache**, and a **history page** that is actually usable: search, filter by service and language, pagination, CSV/JSON export
+-   **Edge TTS** alongside system and OpenAI speech
+-   **AI prompt presets** (polish, summarize, grammar, explain code) that swap an LLM service's prompt for one request without touching its saved config
+-   An OpenAI-compatible **image recognition** service
+
+### Size and performance
+
+-   Language detection moved from lingua to whatlang, taking **84 MB off the binary**
+-   Four frontend dependencies dropped and the flag set no longer shipped whole; framer-motion, react-spinners and jose removed
+-   Screen capture goes through **WGC** rather than GDI, so HDR desktops are no longer washed out
+-   The single 1.8 MB JS bundle is 76 chunks, and each window loads only its own code
+
+### Interface
+
+The Recognize window, the service settings, the Config window, the translate window and the About page were rebuilt on one flat design: no cards or fills, rules doing the dividing, flush-left uppercase actions, machine facts in a quieter face. Only the light and dark themes ship.
+
+### Stability
+
+**Selection translate no longer destroys your clipboard.** Reading the selection borrows the clipboard, and upstream put back only one flavour of what was there: HTML copied from a browser came back as plain text, RTF from a word processor lost its formatting, and a copied file list vanished outright. Every format is now saved and restored.
+
+A number of other upstream problems are fixed here, among them: one bad request could take the whole local server down, the clipboard monitor ran twice over, an IME's keystrokes were taken as finished input, the OpenAI endpoint doubled its `/v1`, CJK text broke at streaming chunk boundaries, panics went to a stderr release builds do not have, and three Rust panics that fire only when a monitor or the config is already in an odd state.
+
+### Engineering
+
+From no tests to **113**, running in CI. TypeScript is actually type checked, which it never was — Vite strips types without verifying them. A CLAUDE.md at the repository root records the architectural decisions.
+
+## Compatibility
+
+**`.potext` plugins still work.** The Tauri 1 `fetch`/`Body` surface is kept deliberately as a shim, so third-party plugins need no changes.
+
+**The config directory is shared with pot.** The bundle identifier is still `com.pot-app.desktop`, so Gloss reads and writes the same `config.json`, `history.db` and plugin directory that pot does. Two consequences:
+
+-   Moving over from pot is seamless — settings, history and installed plugins carry across
+-   But the two are **not meant to be run alongside each other**; they will overwrite each other's settings
+
+Keeping that identifier is deliberate: changing it would strand every existing install's data unless a migration shipped with it.
+
+## Downloads
+
+The Winget, Homebrew, AUR, Flathub and Release channels below distribute **pot, not Gloss**. Build Gloss from source for now — see [Manual compilation](#manual-compilation).
 
 <div align="center">
 
