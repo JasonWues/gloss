@@ -1,19 +1,17 @@
-## 4.2.1 (2026-09-05)
+## 4.3.0 (2026-09-07)
 
-A small release. One of these is a bug you could actually walk into; the
-rest is the history page getting faster and some dead code from the HeroUI
-v3 migration coming out.
+Selection replacement, and a clipboard bug that has been in this app since it
+was pot.
+
+### New:
+
+-   **Selection replacement.** A hotkey that translates whatever you have selected and types the translation back over it, without a window ever appearing. Bind it under Settings → Hotkey; it is unbound by default. Windows only for now — macOS needs its accessibility permission behind a synthesised Cmd+V, and on Linux the answer depends on the session, since Wayland gives no application a sanctioned way to synthesise input into another
 
 ### Bugs fixed:
 
--   the help links in the Ollama and OpenAI settings navigated the settings window itself to ollama.com, out of the app, with no way back. They open in your browser now, like every other link in Gloss. The prop that used to make them external stopped meaning anything in the interface rewrite and nothing had noticed
--   searching the history rescanned the whole table twice on every keystroke, rebuilding the two filter dropdowns from an answer that cannot change while you type. On a 20k-row history that was 9ms of the ~13ms each keystroke spent in the database; it is 3ms now, once, when the page opens. Filtering by service or target no longer sorts the whole matching set to show you twenty rows
-
-### Removed:
-
--   the OpenAI settings carried an ad for a third-party API reseller, in Chinese regardless of your language, behind a referral link crediting pot's author. A settings page is a poor place to advertise and it was not ours to profit from
+-   **selection translate no longer destroys your clipboard.** Reading the selection borrows the clipboard, and putting it back only ever restored one flavour of what was there: HTML copied from a browser came back as plain text, RTF from a word processor lost its formatting, and a copied file list vanished outright. Every format is now saved and restored, including the private ones applications use to paste back into themselves losslessly. Images survive too, as long as the source offered a DIB — which almost all of them do
+-   the translate window took focus even in the modes that keep it hidden, because it was focused a moment before anything had decided whether to show it
 
 ### Internal:
 
--   TypeScript 7, so `pnpm typecheck` runs on the native compiler
--   the props HeroUI v3 quietly ignores are gone from the four components still passing them; one of them was reaching the DOM and warning about it on every test run
+-   the text to translate and how the translation started are now written together, so a mode cannot outlive the request that set it
