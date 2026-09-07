@@ -49,6 +49,12 @@ pub static APP: OnceLock<tauri::AppHandle> = OnceLock::new();
 // Text to be translated
 pub struct StringWrapper(pub Mutex<String>);
 
+// Whether the pending translation should be pasted back over the user's
+// selection instead of being shown. It answers "how did this translation
+// start", so it is written beside the text above and never on its own --
+// `window::set_pending_text` is the only writer, for exactly that reason.
+pub struct ReplaceSelectionWrapper(pub Mutex<bool>);
+
 // `lock().unwrap()` turns one panic into a permanent one: the mutex stays
 // poisoned for the rest of the process, so every later lock panics too and the
 // subsystem behind it is dead until restart. That is the right default when a
@@ -185,6 +191,7 @@ fn main() {
                 config_window();
             }
             app.manage(StringWrapper(Mutex::new("".to_string())));
+            app.manage(ReplaceSelectionWrapper(Mutex::new(false)));
             // Attach handlers to the tray icon created from `app.trayIcon` in the config
             match app.tray_by_id(TRAY_ID) {
                 Some(tray) => {
@@ -236,6 +243,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             reload_store,
             get_text,
+            get_replace_selection,
+            replace_selection,
             cut_image,
             get_base64,
             copy_img,

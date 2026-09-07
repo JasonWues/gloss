@@ -222,6 +222,7 @@
                 "label": "热键设置",
                 "title": "热键设置",
                 "selection_translate": "划词翻译",
+                "selection_replace": "划词替换",
                 "input_translate": "输入翻译",
                 "ocr_recognize": "文字识别",
                 "ocr_translate": "截图翻译",
@@ -233,6 +234,7 @@
                     "global_note": "系统级快捷键，Gloss 没有窗口在前台时同样生效。"
                 },
                 "selection_translate_desc": "翻译当前选中的文本。",
+                "selection_replace_desc": "翻译选中的文本，并把译文粘贴回原处。仅 Windows。",
                 "input_translate_desc": "打开翻译窗口，直接输入要翻译的内容。",
                 "ocr_recognize_desc": "截取一块区域并识别其中的文字。",
                 "ocr_translate_desc": "截取一块区域，识别文字后再翻译。"

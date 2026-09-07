@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { listen } from '@tauri-apps/api/event';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { atom, useAtom } from 'jotai';
+import { atom, useAtom, useSetAtom } from 'jotai';
 import { getServiceName, getServiceSouceType, ServiceSourceType } from '../../../../utils/service_instance';
 import { useConfig, useSyncAtom, useVoice, useToastStyle } from '../../../../hooks';
 import { invoke_plugin } from '../../../../utils/invoke_plugin';
@@ -21,6 +21,12 @@ const appWindow = getCurrentWebviewWindow();
 
 export const sourceTextAtom = atom('');
 export const detectLanguageAtom = atom('');
+// Whether this translation was started by the replace hotkey, and so should be
+// pasted back over the user's selection rather than displayed. Read from Rust
+// once per incoming text and published here, because the answer is needed in
+// two places: this component decides whether the window appears at all, and
+// TargetArea decides what to do with the first result.
+export const replaceSelectionAtom = atom(false);
 
 let unlisten = null;
 
@@ -35,6 +41,7 @@ export default function SourceArea(props) {
     const { pluginList, serviceInstanceConfigMap } = props;
     const [sourceText, setSourceText, syncSourceText] = useSyncAtom(sourceTextAtom);
     const [detectLanguage, setDetectLanguage] = useAtom(detectLanguageAtom);
+    const setReplaceSelection = useSetAtom(replaceSelectionAtom);
     const [incrementalTranslate] = useConfig('incremental_translate', false);
     const [dynamicTranslate] = useConfig('dynamic_translate', false);
     const [deleteNewline] = useConfig('translate_delete_newline', false);
@@ -61,7 +68,13 @@ export default function SourceArea(props) {
 
     const handleNewText = async (text) => {
         text = text.trim();
-        if (hideWindow) {
+        // Asked once per incoming text, before anything else touches the
+        // window: in replace mode it must neither appear nor take focus, since
+        // the result is delivered by synthesising Ctrl+V into whichever
+        // application the user selected the text in.
+        const replace = await invoke('get_replace_selection').catch(() => false);
+        setReplaceSelection(replace);
+        if (hideWindow || replace) {
             appWindow.hide();
         } else {
             appWindow.show();
@@ -240,7 +253,12 @@ export default function SourceArea(props) {
                 });
             }
             unlisten = listen('new_text', (event) => {
-                appWindow.setFocus();
+                // No `setFocus` here. It was redundant -- `handleNewText` shows
+                // and focuses the window itself on the path that wants it -- and
+                // it fired before that function could decide, so it focused the
+                // window even in the two modes that keep it hidden. For the
+                // replace hotkey that is not cosmetic: the foreground
+                // application has to stay foreground to be pasted into.
                 handleNewText(event.payload);
             });
         }

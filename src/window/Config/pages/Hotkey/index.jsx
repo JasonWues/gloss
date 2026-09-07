@@ -45,6 +45,7 @@ const keyMap = {
 
 export default function Hotkey() {
     const [selectionTranslate, setSelectionTranslate] = useConfig('hotkey_selection_translate', '');
+    const [selectionReplace, setSelectionReplace] = useConfig('hotkey_selection_replace', '');
     const [inputTranslate, setInputTranslate] = useConfig('hotkey_input_translate', '');
     const [ocrRecognize, setOcrRecognize] = useConfig('hotkey_ocr_recognize', '');
     const [ocrTranslate, setOcrTranslate] = useConfig('hotkey_ocr_translate', '');
@@ -154,6 +155,41 @@ export default function Hotkey() {
                                     className={`${selectionTranslate === '' ? 'hidden' : ''}`}
                                     onPress={() => {
                                         registerHandler('hotkey_selection_translate', selectionTranslate);
+                                    }}
+                                >
+                                    {t('common.ok')}
+                                </Button>
+                            </InputGroup.Suffix>
+                        </InputGroup>
+                    )}
+                </Row>
+                <Row
+                    label={t('config.hotkey.selection_replace')}
+                    desc={t('config.hotkey.selection_replace_desc')}
+                >
+                    {selectionReplace !== null && (
+                        <InputGroup className='w-[240px]'>
+                            <InputGroup.Input
+                                type='hotkey'
+                                aria-label={t('config.hotkey.set_hotkey')}
+                                placeholder={t('config.hotkey.set_hotkey')}
+                                value={selectionReplace}
+                                readOnly
+                                onKeyDown={(e) => {
+                                    keyDown(e, setSelectionReplace);
+                                }}
+                                onFocus={() => {
+                                    unregister(selectionReplace);
+                                    setSelectionReplace('');
+                                }}
+                            />
+                            <InputGroup.Suffix>
+                                <Button
+                                    size='sm'
+                                    variant='primary'
+                                    className={`${selectionReplace === '' ? 'hidden' : ''}`}
+                                    onPress={() => {
+                                        registerHandler('hotkey_selection_replace', selectionReplace);
                                     }}
                                 >
                                     {t('common.ok')}

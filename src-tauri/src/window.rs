@@ -3,6 +3,7 @@ use std::fs;
 use crate::config::get;
 use crate::config::set;
 use crate::LockExt;
+use crate::ReplaceSelectionWrapper;
 use crate::StringWrapper;
 use crate::APP;
 use dirs::cache_dir;
@@ -99,7 +100,13 @@ fn get_current_monitor(x: i32, y: i32) -> Option<Monitor> {
 }
 
 // Creating a window on the mouse monitor
-fn build_window(label: &str, title: &str) -> (WebviewWindow, bool) {
+//
+// `focus` is false only for the replace-selection path, which translates in a
+// window that never appears. Taking focus there would be fatal rather than
+// untidy: the result is delivered by synthesising Ctrl+V into whatever is in
+// the foreground, so a window that steals the foreground first would paste the
+// translation into itself and leave the user's selection untouched.
+fn build_window(label: &str, title: &str, focus: bool) -> (WebviewWindow, bool) {
     let mouse_position = get_mouse_position();
     // `position()` on the builder is logical, the monitor reports physical, so the
     // two have to be reconciled or the window lands off-screen on a scaled setup.
@@ -110,7 +117,9 @@ fn build_window(label: &str, title: &str) -> (WebviewWindow, bool) {
     match app_handle.get_webview_window(label) {
         Some(v) => {
             info!("Window existence: {}", label);
-            v.set_focus().unwrap();
+            if focus {
+                v.set_focus().unwrap();
+            }
             (v, true)
         }
         None => {
@@ -125,7 +134,7 @@ fn build_window(label: &str, title: &str) -> (WebviewWindow, bool) {
             // request's `Origin` header, which that flag makes WebView2 drop. Every
             // `invoke` then fails with "missing Origin header". Nothing needs it
             // anymore either — all HTTP goes through the Rust http plugin.
-            .focused(true)
+            .focused(focus)
             .title(title)
             .visible(false);
 
@@ -159,7 +168,7 @@ fn build_window(label: &str, title: &str) -> (WebviewWindow, bool) {
 }
 
 pub fn config_window() {
-    let (window, _exists) = build_window("config", "Config");
+    let (window, _exists) = build_window("config", "Config", true);
     window
         .set_min_size(Some(tauri::LogicalSize::new(800, 400)))
         .unwrap();
@@ -187,8 +196,12 @@ fn log_window_geometry(window: &WebviewWindow) {
 }
 
 fn translate_window() -> WebviewWindow {
+    translate_window_focused(true)
+}
+
+fn translate_window_focused(focus: bool) -> WebviewWindow {
     let mut mouse_position = get_mouse_position();
-    let (window, exists) = build_window("translate", "Translate");
+    let (window, exists) = build_window("translate", "Translate", focus);
     if exists {
         return window;
     }
@@ -289,29 +302,62 @@ fn translate_window() -> WebviewWindow {
     window
 }
 
+/// The text the translate window will pick up, and whether its result should be
+/// pasted back over the user's selection rather than shown.
+///
+/// One function so the two cannot drift. The flag describes how *this*
+/// translation started, so every entry point that writes the text has to answer
+/// it -- otherwise a replace would stay armed and the next ordinary translation
+/// would type itself into whatever happened to have focus.
+fn set_pending_text(text: &str, replace: bool) {
+    let app_handle = APP.get().unwrap();
+    let state: tauri::State<StringWrapper> = app_handle.state();
+    state.0.lock_recover().replace_range(.., text);
+    let replace_state: tauri::State<ReplaceSelectionWrapper> = app_handle.state();
+    *replace_state.0.lock_recover() = replace;
+}
+
 pub fn selection_translate() {
     use selection::get_text;
     // Get Selected Text
     let text = get_text();
     if !text.trim().is_empty() {
-        let app_handle = APP.get().unwrap();
-        // Write into State
-        let state: tauri::State<StringWrapper> = app_handle.state();
-        state.0.lock_recover().replace_range(.., &text);
+        set_pending_text(&text, false);
     }
 
     let window = translate_window();
     window.emit("new_text", text).unwrap();
 }
 
+/// Translate the selection and paste the result back over it.
+///
+/// The window still does the translating -- that is where the services, the
+/// glossary and the cache live -- it just never shows itself, and the first
+/// result is sent back to `selection::set_text` instead of being displayed.
+pub fn selection_replace() {
+    use selection::get_text;
+    let text = get_text();
+    // Unlike `selection_translate`, an empty selection ends it here. That one
+    // opens a window the user can type into; there is nothing to replace.
+    if text.trim().is_empty() {
+        info!("selection_replace: nothing selected");
+        return;
+    }
+
+    set_pending_text(&text, true);
+    // Unfocused, and it stays hidden: the frontend delivers the result by
+    // pasting into whatever is in the foreground, which has to remain the
+    // application the user selected the text in.
+    let window = translate_window_focused(false);
+    // No `unwrap`: this runs on a hotkey callback, where a panic takes the
+    // thread down with no window ever appearing to say why.
+    if let Err(e) = window.emit("new_text", text) {
+        warn!("selection_replace: could not hand the text to the window: {e}");
+    }
+}
+
 pub fn input_translate() {
-    let app_handle = APP.get().unwrap();
-    // Clear State
-    let state: tauri::State<StringWrapper> = app_handle.state();
-    state
-        .0
-        .lock_recover()
-        .replace_range(.., "[INPUT_TRANSLATE]");
+    set_pending_text("[INPUT_TRANSLATE]", false);
     let window = translate_window();
     let position_type = match get("translate_window_position") {
         Some(v) => v.as_str().unwrap().to_string(),
@@ -325,27 +371,19 @@ pub fn input_translate() {
 }
 
 pub fn text_translate(text: String) {
-    let app_handle = APP.get().unwrap();
-    // Clear State
-    let state: tauri::State<StringWrapper> = app_handle.state();
-    state.0.lock_recover().replace_range(.., &text);
+    set_pending_text(&text, false);
     let window = translate_window();
     window.emit("new_text", text).unwrap();
 }
 
 pub fn image_translate() {
-    let app_handle = APP.get().unwrap();
-    let state: tauri::State<StringWrapper> = app_handle.state();
-    state
-        .0
-        .lock_recover()
-        .replace_range(.., "[IMAGE_TRANSLATE]");
+    set_pending_text("[IMAGE_TRANSLATE]", false);
     let window = translate_window();
     window.emit("new_text", "[IMAGE_TRANSLATE]").unwrap();
 }
 
 pub fn recognize_window() {
-    let (window, exists) = build_window("recognize", "Recognize");
+    let (window, exists) = build_window("recognize", "Recognize", true);
     if exists {
         window.emit("new_image", "").unwrap();
         return;
@@ -378,7 +416,7 @@ pub fn recognize_window() {
 
 #[cfg(not(target_os = "macos"))]
 fn screenshot_window() -> WebviewWindow {
-    let (window, _exists) = build_window("screenshot", "Screenshot");
+    let (window, _exists) = build_window("screenshot", "Screenshot", true);
 
     window.set_skip_taskbar(true).unwrap();
     #[cfg(target_os = "macos")]
@@ -470,7 +508,7 @@ pub fn ocr_translate() {
 
 #[tauri::command(async)]
 pub fn updater_window() {
-    let (window, _exists) = build_window("updater", "Updater");
+    let (window, _exists) = build_window("updater", "Updater", true);
     window
         .set_min_size(Some(tauri::LogicalSize::new(600, 400)))
         .unwrap();

@@ -1,6 +1,7 @@
 use crate::config::StoreWrapper;
 use crate::error::Error;
 use crate::LockExt;
+use crate::ReplaceSelectionWrapper;
 use crate::StringWrapper;
 use crate::APP;
 use log::{error, info};
@@ -11,6 +12,35 @@ use tauri::Manager;
 #[tauri::command]
 pub fn get_text(state: tauri::State<StringWrapper>) -> String {
     return state.0.lock_recover().to_string();
+}
+
+/// Whether the pending translation was started by the replace hotkey.
+///
+/// Read alongside `get_text`, and for the same reason: the translate window is
+/// reused, so it learns about a new translation either from the `new_text`
+/// event or -- on the run that created it -- by asking. Both paths need to know
+/// which kind of translation this is.
+#[tauri::command]
+pub fn get_replace_selection(state: tauri::State<ReplaceSelectionWrapper>) -> bool {
+    *state.0.lock_recover()
+}
+
+/// Paste `text` over whatever is currently selected in the foreground
+/// application.
+///
+/// `spawn_blocking` because `set_text` is not quick: it snapshots the
+/// clipboard, synthesises Ctrl+V and then waits for the paste to land before
+/// putting the clipboard back. On the async runtime's own threads that would
+/// park a worker for the whole of it.
+#[tauri::command]
+pub async fn replace_selection(text: String) -> bool {
+    match tauri::async_runtime::spawn_blocking(move || selection::set_text(&text)).await {
+        Ok(pasted) => pasted,
+        Err(e) => {
+            error!("replace_selection failed: {e}");
+            false
+        }
+    }
 }
 
 #[tauri::command]

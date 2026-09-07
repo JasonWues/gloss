@@ -9,11 +9,13 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useAtomValue } from 'jotai';
 import { nanoid } from 'nanoid';
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { invoke } from '@tauri-apps/api/core';
 
 import * as builtinCollectionServices from '../../../../services/collection';
 import { sourceLanguageAtom, targetLanguageAtom, aiPresetAtom } from '../LanguageArea';
 import { useConfig, useToastStyle, useVoice } from '../../../../hooks';
-import { sourceTextAtom, detectLanguageAtom } from '../SourceArea';
+import { sourceTextAtom, detectLanguageAtom, replaceSelectionAtom } from '../SourceArea';
 import { callService, resolveService, withGlossary } from '../../../../utils/translate_dispatch';
 import { addToHistory, buildCacheKey, getCachedTranslation, setCachedTranslation } from '../../../../utils/db';
 import { invoke_plugin } from '../../../../utils/invoke_plugin';
@@ -30,6 +32,8 @@ import {
     getServiceSouceType,
     whetherPluginService,
 } from '../../../../utils/service_instance';
+
+const appWindow = getCurrentWebviewWindow();
 
 let translateID = [];
 
@@ -70,6 +74,7 @@ export default function TargetArea(props) {
     const [clipboardMonitor] = useConfig('clipboard_monitor', false);
 
     const detectLanguage = useAtomValue(detectLanguageAtom);
+    const replaceSelection = useAtomValue(replaceSelectionAtom);
     const [ttsPluginInfo, setTtsPluginInfo] = useState();
     const { t } = useTranslation();
     const textAreaRef = useRef();
@@ -185,7 +190,36 @@ export default function TargetArea(props) {
                     typeof v === 'string' ? v.trim() : v
                 ).catch((e) => logError(`write history failed: ${e}`));
             }
-            if (index === 0 && !clipboardMonitor) {
+            // Replace mode short-circuits the copy modes below. The window was
+            // never shown, so there is nothing to display the result in and
+            // nothing to leave open: the first service's answer is typed back
+            // over the user's selection and the window goes away.
+            //
+            // Only the first service, exactly like `autoCopy`: every configured
+            // service translates, but only one of them can be pasted, and the
+            // top one is the one the user ordered first.
+            //
+            // Dictionary services answer with an object rather than a string,
+            // which has no sensible plain-text form to paste, so those fall
+            // through to a notification instead of pasting `[object Object]`.
+            if (index === 0 && replaceSelection) {
+                if (typeof v === 'string' && v.trim() !== '') {
+                    invoke('replace_selection', { text: v.trim() })
+                        .then((pasted) => {
+                            if (!pasted) {
+                                // The paste is synthesised input, which the
+                                // foreground application can simply not act on.
+                                // Losing the translation silently would be the
+                                // worst outcome, so it is at least reported.
+                                sendNotification({ title: t('common.write_clipboard'), body: v.trim() });
+                            }
+                        })
+                        .catch((e) => logError(`replace selection failed: ${e}`))
+                        .finally(() => appWindow.hide());
+                } else {
+                    appWindow.hide();
+                }
+            } else if (index === 0 && !clipboardMonitor) {
                 switch (autoCopy) {
                     case 'target':
                         writeText(v).then(() => {
@@ -262,6 +296,14 @@ export default function TargetArea(props) {
             if (translateID[index] !== id) return;
             setError(e.toString());
             setIsLoading(false);
+            // In replace mode the error has nowhere to be seen: the window was
+            // never shown and is about to be hidden for good. A notification is
+            // the only way the user learns why nothing was pasted -- otherwise
+            // the hotkey looks like it simply did nothing.
+            if (index === 0 && replaceSelection) {
+                sendNotification({ title: t('config.hotkey.selection_replace'), body: e.toString() });
+                appWindow.hide();
+            }
         };
 
         // Streaming services push partial text through this before resolving.

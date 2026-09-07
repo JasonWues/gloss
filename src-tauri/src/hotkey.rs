@@ -1,5 +1,7 @@
 use crate::config::{get, set};
-use crate::window::{input_translate, ocr_recognize, ocr_translate, selection_translate};
+use crate::window::{
+    input_translate, ocr_recognize, ocr_translate, selection_replace, selection_translate,
+};
 use crate::APP;
 use log::{info, warn};
 use tauri::AppHandle;
@@ -55,6 +57,12 @@ pub fn register_shortcut(shortcut: &str) -> Result<(), String> {
             selection_translate,
             "",
         )?,
+        "hotkey_selection_replace" => register(
+            app_handle,
+            "hotkey_selection_replace",
+            selection_replace,
+            "",
+        )?,
         "hotkey_input_translate" => {
             register(app_handle, "hotkey_input_translate", input_translate, "")?
         }
@@ -65,6 +73,12 @@ pub fn register_shortcut(shortcut: &str) -> Result<(), String> {
                 app_handle,
                 "hotkey_selection_translate",
                 selection_translate,
+                "",
+            )?;
+            register(
+                app_handle,
+                "hotkey_selection_replace",
+                selection_replace,
                 "",
             )?;
             register(app_handle, "hotkey_input_translate", input_translate, "")?;
@@ -84,6 +98,12 @@ pub fn register_shortcut_by_frontend(name: &str, shortcut: &str) -> Result<(), S
             app_handle,
             "hotkey_selection_translate",
             selection_translate,
+            shortcut,
+        )?,
+        "hotkey_selection_replace" => register(
+            app_handle,
+            "hotkey_selection_replace",
+            selection_replace,
             shortcut,
         )?,
         "hotkey_input_translate" => register(

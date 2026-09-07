@@ -222,6 +222,7 @@
                 "label": "Hotkey",
                 "title": "Hotkey Settings",
                 "selection_translate": "Selection Translation",
+                "selection_replace": "Selection Replacement",
                 "input_translate": "Text Translation",
                 "ocr_recognize": "Text Recognition",
                 "ocr_translate": "Screenshot Translation",
@@ -233,6 +234,7 @@
                     "global_note": "System-wide shortcuts, live even when Gloss has no window focused."
                 },
                 "selection_translate_desc": "Translate whatever text is selected right now.",
+                "selection_replace_desc": "Translate the selected text and paste the result over it. Windows only.",
                 "input_translate_desc": "Open the translate window with an empty box to type into.",
                 "ocr_recognize_desc": "Screenshot a region and read the text out of it.",
                 "ocr_translate_desc": "Screenshot a region, read it, then translate what it found."

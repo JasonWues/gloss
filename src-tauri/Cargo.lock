@@ -6142,7 +6142,7 @@ dependencies = [
 [[package]]
 name = "selection"
 version = "1.2.0"
-source = "git+https://github.com/JasonWues/Selection#f60181114950fc7f154eb3fcb400a10ecf0fe5de"
+source = "git+https://github.com/JasonWues/Selection#d59a2d8def7ff890b1a0b647c48c65604f1617fd"
 dependencies = [
  "accessibility-ng",
  "accessibility-sys-ng",
