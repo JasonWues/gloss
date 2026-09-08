@@ -30,11 +30,11 @@ BINDGEN_DEPS="clang libclang-dev"
 
 if [ "$INPUT_TARGET" = "x86_64-unknown-linux-gnu" ]; then
     apt-get update
-    apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev patchelf libxdo-dev libxcb1 libxrandr2 libdbus-1-3 libpipewire-0.3-dev libspa-0.2-dev libgbm-dev libdrm-dev libegl-dev $BINDGEN_DEPS
+    apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev xdg-utils patchelf libxdo-dev libxcb1 libxrandr2 libdbus-1-3 libpipewire-0.3-dev libspa-0.2-dev libgbm-dev libdrm-dev libegl-dev $BINDGEN_DEPS
 elif [ "$INPUT_TARGET" = "i686-unknown-linux-gnu" ]; then
     dpkg --add-architecture i386
     apt-get update
-    apt-get install -y libstdc++6:i386 libgdk-pixbuf2.0-dev:i386 libatomic1:i386 gcc-multilib g++-multilib libwebkit2gtk-4.1-dev:i386 libjavascriptcoregtk-4.1-dev:i386 libsoup-3.0-dev:i386 libssl-dev:i386 libgtk-3-dev:i386 librsvg2-dev:i386 patchelf:i386 libxdo-dev:i386 libxcb1:i386 libxrandr2:i386 libdbus-1-3:i386 libayatana-appindicator3-dev:i386 libpipewire-0.3-dev:i386 libspa-0.2-dev:i386 libgbm-dev:i386 libdrm-dev:i386 libegl-dev:i386 $BINDGEN_DEPS
+    apt-get install -y libstdc++6:i386 libgdk-pixbuf2.0-dev:i386 libatomic1:i386 gcc-multilib g++-multilib libwebkit2gtk-4.1-dev:i386 libjavascriptcoregtk-4.1-dev:i386 libsoup-3.0-dev:i386 libssl-dev:i386 libgtk-3-dev:i386 librsvg2-dev:i386 xdg-utils patchelf:i386 libxdo-dev:i386 libxcb1:i386 libxrandr2:i386 libdbus-1-3:i386 libayatana-appindicator3-dev:i386 libpipewire-0.3-dev:i386 libspa-0.2-dev:i386 libgbm-dev:i386 libdrm-dev:i386 libegl-dev:i386 $BINDGEN_DEPS
     export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig/:$PKG_CONFIG_PATH
     export PKG_CONFIG_SYSROOT_DIR=/
     # libspa-sys' build.rs never passes --target to clang, so bindgen would parse
@@ -44,7 +44,7 @@ elif [ "$INPUT_TARGET" = "aarch64-unknown-linux-gnu" ]; then
     dpkg --add-architecture arm64
     apt-get update
     apt-get install -y libncurses6:arm64 libtinfo6:arm64 linux-libc-dev:arm64 libncursesw6:arm64 libcups2:arm64
-    apt-get install -y --no-install-recommends g++-aarch64-linux-gnu libc6-dev-arm64-cross libssl-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libsoup-3.0-dev:arm64 libgtk-3-dev:arm64 patchelf:arm64 librsvg2-dev:arm64 libxdo-dev:arm64 libxcb1:arm64 libxrandr2:arm64 libdbus-1-3:arm64 libayatana-appindicator3-dev:arm64 libpipewire-0.3-dev:arm64 libspa-0.2-dev:arm64 libgbm-dev:arm64 libdrm-dev:arm64 libegl-dev:arm64 $BINDGEN_DEPS
+    apt-get install -y --no-install-recommends g++-aarch64-linux-gnu libc6-dev-arm64-cross libssl-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libsoup-3.0-dev:arm64 libgtk-3-dev:arm64 patchelf:arm64 xdg-utils librsvg2-dev:arm64 libxdo-dev:arm64 libxcb1:arm64 libxrandr2:arm64 libdbus-1-3:arm64 libayatana-appindicator3-dev:arm64 libpipewire-0.3-dev:arm64 libspa-0.2-dev:arm64 libgbm-dev:arm64 libdrm-dev:arm64 libegl-dev:arm64 $BINDGEN_DEPS
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
     export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
     export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
