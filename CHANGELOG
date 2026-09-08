@@ -1,17 +1,29 @@
-## 4.3.0 (2026-09-07)
+## 4.5.0 (2026-09-08)
 
-Selection replacement, and a clipboard bug that has been in this app since it
-was pot.
+The glossary gets a way in and a way out, the accent colour is yours to pick,
+and the local server stops answering web pages. 4.3.0 built no installers —
+see the end.
 
 ### New:
 
--   **Selection replacement.** A hotkey that translates whatever you have selected and types the translation back over it, without a window ever appearing. Bind it under Settings → Hotkey; it is unbound by default. Windows only for now — macOS needs its accessibility permission behind a synthesised Cmd+V, and on Linux the answer depends on the session, since Wayland gives no application a sanctioned way to synthesise input into another
+-   **Add a glossary term without leaving the translation.** A bad rendering is the moment you want a term, and until now that meant going to Settings, typing both halves from memory, and coming back. The result panel has a button that prefills from what you have selected, scopes the entry to the pair actually being translated, and re-translates when you save it
+-   **Import and export the glossary**, as CSV or JSON. The history page has had this all along; the glossary, which is the thing you actually build up by hand, had not
+-   **Re-translate a row from history** — useful the moment you spot a bad OCR read, since it sends the text as you have edited it in the box
+-   **Pick an accent colour.** One choice; the hover, the text on top of it, the focus ring and the link colour are worked out from it, and it sits on top of either theme. "Follow the theme" hands all of it back
+
+### Security:
+
+-   **The local server no longer answers the browser.** It listens on 127.0.0.1, which keeps the network out but not the page you are reading: a browser may send cross-origin requests to localhost, and while it cannot read the reply, the side effect still happened. Two of these endpoints take a screenshot — so a page could have had your screen captured and pushed through whichever OCR service you had configured, just by loading an image. It now takes POST only, and refuses anything a browser labels as cross-site. PopClip, SnipDo and any script of your own that POSTs are unaffected
+-   **The server can be turned off**, under Settings → General, for anyone not using those extensions
 
 ### Bugs fixed:
 
--   **selection translate no longer destroys your clipboard.** Reading the selection borrows the clipboard, and putting it back only ever restored one flavour of what was there: HTML copied from a browser came back as plain text, RTF from a word processor lost its formatting, and a copied file list vanished outright. Every format is now saved and restored, including the private ones applications use to paste back into themselves losslessly. Images survive too, as long as the source offered a DIB — which almost all of them do
--   the translate window took focus even in the modes that keep it hidden, because it was focused a moment before anything had decided whether to show it
+-   the Recognize window's translate button made an HTTP round-trip to Gloss's own local server to reach a function in the same process; it would have broken for anyone turning that server off, and did break under the change above
 
-### Internal:
+### Note on 4.3.0:
 
--   the text to translate and how the translation started are now written together, so a mode cannot outlive the request that set it
+That release built no macOS, Linux or WebView2-bundled Windows installers: the
+rename to Gloss never reached the packaging workflow, which still looked for
+files called `pot`, and the Linux image was missing a package the AppImage
+bundler needs. Fixed here. Three jobs that published this fork's builds into
+upstream pot's Homebrew, WinGet and docs channels have also been removed.
