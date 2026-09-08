@@ -1,29 +1,17 @@
-## 4.5.0 (2026-09-08)
+## 4.5.1 (2026-09-08)
 
-The glossary gets a way in and a way out, the accent colour is yours to pick,
-and the local server stops answering web pages. 4.3.0 built no installers —
-see the end.
-
-### New:
-
--   **Add a glossary term without leaving the translation.** A bad rendering is the moment you want a term, and until now that meant going to Settings, typing both halves from memory, and coming back. The result panel has a button that prefills from what you have selected, scopes the entry to the pair actually being translated, and re-translates when you save it
--   **Import and export the glossary**, as CSV or JSON. The history page has had this all along; the glossary, which is the thing you actually build up by hand, had not
--   **Re-translate a row from history** — useful the moment you spot a bad OCR read, since it sends the text as you have edited it in the box
--   **Pick an accent colour.** One choice; the hover, the text on top of it, the focus ring and the link colour are worked out from it, and it sits on top of either theme. "Follow the theme" hands all of it back
-
-### Security:
-
--   **The local server no longer answers the browser.** It listens on 127.0.0.1, which keeps the network out but not the page you are reading: a browser may send cross-origin requests to localhost, and while it cannot read the reply, the side effect still happened. Two of these endpoints take a screenshot — so a page could have had your screen captured and pushed through whichever OCR service you had configured, just by loading an image. It now takes POST only, and refuses anything a browser labels as cross-site. PopClip, SnipDo and any script of your own that POSTs are unaffected
--   **The server can be turned off**, under Settings → General, for anyone not using those extensions
+A scrolling fix, and the release machinery around 4.5.0.
 
 ### Bugs fixed:
 
--   the Recognize window's translate button made an HTTP round-trip to Gloss's own local server to reach a function in the same process; it would have broken for anyone turning that server off, and did break under the change above
+-   **Scrolling a long translation while it streams now works.** Dragging the scrollbar moved a little and snapped back, over and over, for as long as the translation ran: each chunk resized the result box by briefly collapsing it, which took the text out of the window's height and made the browser throw the scroll position away. If you are already at the bottom it now follows the output instead, and if you have scrolled back to re-read something it leaves you where you are
+-   **Auto-update was pointing at files that do not exist.** The manifest shipped clients poll still named every download `pot_` rather than `Gloss_`, so each one 404'd — and the script treats a failed download as an empty signature rather than an error, so it published broken entries instead of failing. Every platform was affected. The three Linux entries also pointed at the macOS bundle, which would have offered a Linux machine a `.app`
 
-### Note on 4.3.0:
+### Removed:
 
-That release built no macOS, Linux or WebView2-bundled Windows installers: the
-rename to Gloss never reached the packaging workflow, which still looked for
-files called `pot`, and the Linux image was missing a package the AppImage
-bundler needs. Fixed here. Three jobs that published this fork's builds into
-upstream pot's Homebrew, WinGet and docs channels have also been removed.
+-   the 32-bit x86 and armv7 Linux builds. Both had been failing for as long as anyone had looked, and neither is a desktop this application plausibly runs on. 64-bit x86 and ARM stay
+
+### Internal:
+
+-   CI caches the pnpm store and, on macOS and Windows, the compiled Rust dependencies
+-   a failed package install in the Linux build container now stops the build and says so, instead of letting it run on for ten minutes and die with an unrelated-looking error about pkg-config
