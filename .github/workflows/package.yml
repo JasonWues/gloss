@@ -138,6 +138,21 @@ jobs:
             - name: install dependencies
               run: |
                   rustup target add ${{ matrix.target }}
+            # `workspaces`, because the manifest and lockfile are in src-tauri
+            # rather than the repository root -- pointed at `.` the action finds
+            # no Cargo.lock to key on and caches next to nothing.
+            #
+            # `key` is not decoration either. The action builds its key from the
+            # job id, and both legs of this matrix are the same job; the target
+            # only ever appears as a `--target` flag on the build command, never
+            # as CARGO_BUILD_TARGET, so the action cannot see it. Without this
+            # the two architectures would share one entry and overwrite each
+            # other's every run.
+            - name: Cache Rust
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri
+                  key: ${{ matrix.target }}
             - name: Setup pnpm
               uses: pnpm/action-setup@v4
               with:
@@ -243,6 +258,19 @@ jobs:
               run: |
                   rustup target add ${{ matrix.target }}
                   rustup toolchain install --force-non-host ${{ matrix.toolchain }}
+            # See the macOS job for why `workspaces` and an explicit key are
+            # both needed. `shared-key` rather than `key` here because the two
+            # Windows jobs -- this one and build-for-windows-fix-runtime --
+            # compile the identical dependency graph for a given target and
+            # differ only in how the bundler is configured. The action saves
+            # dependency artifacts and prunes this crate's own, so letting them
+            # share one entry per target halves what these six legs cost against
+            # the repository's 10 GB cache budget.
+            - name: Cache Rust
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri
+                  shared-key: windows-${{ matrix.target }}
             - name: Setup pnpm
               uses: pnpm/action-setup@v4
               with:
@@ -305,6 +333,19 @@ jobs:
               run: |
                   rustup target add ${{ matrix.target }}
                   rustup toolchain install --force-non-host ${{ matrix.toolchain }}
+            # See the macOS job for why `workspaces` and an explicit key are
+            # both needed. `shared-key` rather than `key` here because the two
+            # Windows jobs -- this one and build-for-windows-fix-runtime --
+            # compile the identical dependency graph for a given target and
+            # differ only in how the bundler is configured. The action saves
+            # dependency artifacts and prunes this crate's own, so letting them
+            # share one entry per target halves what these six legs cost against
+            # the repository's 10 GB cache budget.
+            - name: Cache Rust
+              uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri
+                  shared-key: windows-${{ matrix.target }}
             - name: Setup pnpm
               uses: pnpm/action-setup@v4
               with:

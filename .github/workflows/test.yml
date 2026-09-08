@@ -15,17 +15,22 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Install Node
-              uses: actions/setup-node@v4
-              with:
-                  node-version: 22
-
-            # pnpm 11 refuses to run below Node 22.13, which is why the version
-            # above is pinned rather than taken from `latest`.
+            # Before `setup-node`, which is the opposite of the obvious order.
+            # `cache: pnpm` below asks pnpm where its store is, so pnpm has to
+            # exist by then; with these the other way round setup-node fails
+            # with "Unable to locate executable file: pnpm".
             - name: Install pnpm
               uses: pnpm/action-setup@v4
               with:
                   version: 11
+
+            # pnpm 11 refuses to run below Node 22.13, which is why the version
+            # is pinned rather than taken from `latest`.
+            - name: Install Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: pnpm
 
             - name: Install dependencies
               run: pnpm install
