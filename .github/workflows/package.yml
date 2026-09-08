@@ -387,22 +387,27 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                platform: [ubuntu-latest]
-                # 32-bit x86 and armv7 are gone. Both had been failing for as
-                # long as anyone had looked -- the cross-architecture apt install
-                # they need does not resolve on bookworm -- and neither is a
-                # desktop this application plausibly runs on. aarch64 stays,
-                # since ARM laptops and single-board machines are real, and it
-                # fails for the same reason the other two did.
-                target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
+                # Both targets are built on their own architecture, which is why
+                # the runner is part of each entry rather than a dimension of its
+                # own. aarch64 used to be cross-compiled from an x86_64 runner
+                # and could not be: the GTK -dev stack pulls in
+                # gobject-introspection, whose Architecture:all Python
+                # dependencies cannot be installed under a foreign-arch
+                # qualifier at all, and installing linux-libc-dev:arm64
+                # displaced the host's and broke libc6-dev with it. Neither is
+                # solvable by choosing different packages.
+                #
+                # 32-bit x86 and armv7 were removed rather than moved: they had
+                # been failing the same way, and neither is a desktop this
+                # application plausibly runs on.
                 include:
-                    - os: ubuntu-latest
-                      target: x86_64-unknown-linux-gnu
+                    - target: x86_64-unknown-linux-gnu
                       toolchain: stable-x86_64-unknown-linux-gnu
-                    - os: ubuntu-latest
-                      target: aarch64-unknown-linux-gnu
+                      runner: ubuntu-latest
+                    - target: aarch64-unknown-linux-gnu
                       toolchain: stable-aarch64-unknown-linux-gnu
-        runs-on: ${{ matrix.platform }}
+                      runner: ubuntu-24.04-arm
+        runs-on: ${{ matrix.runner }}
         steps:
             - uses: actions/download-artifact@v4
               with:
