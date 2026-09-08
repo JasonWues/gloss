@@ -28,13 +28,30 @@ rustup toolchain install --force-non-host "$INPUT_TOOLCHAIN"
 # here that never carries an architecture suffix.
 BINDGEN_DEPS="clang libclang-dev"
 
+# This script has no `set -e`, so a failed `apt-get install` used to be
+# invisible: the packages were silently absent and the build carried on to
+# cargo, which died ten or so minutes later inside gdk-sys with "The system
+# library `gdk-3.0` was not found" -- an error about pkg-config describing an
+# apt problem that had long scrolled off the top of the log. All three
+# cross-architecture targets have been failing that way.
+#
+# Not `set -e` at the top, which would make every command in the file fatal
+# including ones that have always been allowed to fail. This stops at the one
+# step whose failure is worth stopping for, and says so in the annotation.
+apt_install() {
+    if ! apt-get install -y "$@"; then
+        echo "::error::apt-get install failed for $INPUT_TARGET -- see the apt output above for the package it could not satisfy"
+        exit 1
+    fi
+}
+
 if [ "$INPUT_TARGET" = "x86_64-unknown-linux-gnu" ]; then
     apt-get update
-    apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev xdg-utils patchelf libxdo-dev libxcb1 libxrandr2 libdbus-1-3 libpipewire-0.3-dev libspa-0.2-dev libgbm-dev libdrm-dev libegl-dev $BINDGEN_DEPS
+    apt_install libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev xdg-utils patchelf libxdo-dev libxcb1 libxrandr2 libdbus-1-3 libpipewire-0.3-dev libspa-0.2-dev libgbm-dev libdrm-dev libegl-dev $BINDGEN_DEPS
 elif [ "$INPUT_TARGET" = "i686-unknown-linux-gnu" ]; then
     dpkg --add-architecture i386
     apt-get update
-    apt-get install -y libstdc++6:i386 libgdk-pixbuf2.0-dev:i386 libatomic1:i386 gcc-multilib g++-multilib libwebkit2gtk-4.1-dev:i386 libjavascriptcoregtk-4.1-dev:i386 libsoup-3.0-dev:i386 libssl-dev:i386 libgtk-3-dev:i386 librsvg2-dev:i386 xdg-utils patchelf:i386 libxdo-dev:i386 libxcb1:i386 libxrandr2:i386 libdbus-1-3:i386 libayatana-appindicator3-dev:i386 libpipewire-0.3-dev:i386 libspa-0.2-dev:i386 libgbm-dev:i386 libdrm-dev:i386 libegl-dev:i386 $BINDGEN_DEPS
+    apt_install libstdc++6:i386 libgdk-pixbuf2.0-dev:i386 libatomic1:i386 gcc-multilib g++-multilib libwebkit2gtk-4.1-dev:i386 libjavascriptcoregtk-4.1-dev:i386 libsoup-3.0-dev:i386 libssl-dev:i386 libgtk-3-dev:i386 librsvg2-dev:i386 xdg-utils patchelf:i386 libxdo-dev:i386 libxcb1:i386 libxrandr2:i386 libdbus-1-3:i386 libayatana-appindicator3-dev:i386 libpipewire-0.3-dev:i386 libspa-0.2-dev:i386 libgbm-dev:i386 libdrm-dev:i386 libegl-dev:i386 $BINDGEN_DEPS
     export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig/:$PKG_CONFIG_PATH
     export PKG_CONFIG_SYSROOT_DIR=/
     # libspa-sys' build.rs never passes --target to clang, so bindgen would parse
@@ -43,8 +60,8 @@ elif [ "$INPUT_TARGET" = "i686-unknown-linux-gnu" ]; then
 elif [ "$INPUT_TARGET" = "aarch64-unknown-linux-gnu" ]; then
     dpkg --add-architecture arm64
     apt-get update
-    apt-get install -y libncurses6:arm64 libtinfo6:arm64 linux-libc-dev:arm64 libncursesw6:arm64 libcups2:arm64
-    apt-get install -y --no-install-recommends g++-aarch64-linux-gnu libc6-dev-arm64-cross libssl-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libsoup-3.0-dev:arm64 libgtk-3-dev:arm64 patchelf:arm64 xdg-utils librsvg2-dev:arm64 libxdo-dev:arm64 libxcb1:arm64 libxrandr2:arm64 libdbus-1-3:arm64 libayatana-appindicator3-dev:arm64 libpipewire-0.3-dev:arm64 libspa-0.2-dev:arm64 libgbm-dev:arm64 libdrm-dev:arm64 libegl-dev:arm64 $BINDGEN_DEPS
+    apt_install libncurses6:arm64 libtinfo6:arm64 linux-libc-dev:arm64 libncursesw6:arm64 libcups2:arm64
+    apt_install --no-install-recommends g++-aarch64-linux-gnu libc6-dev-arm64-cross libssl-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libjavascriptcoregtk-4.1-dev:arm64 libsoup-3.0-dev:arm64 libgtk-3-dev:arm64 patchelf:arm64 xdg-utils librsvg2-dev:arm64 libxdo-dev:arm64 libxcb1:arm64 libxrandr2:arm64 libdbus-1-3:arm64 libayatana-appindicator3-dev:arm64 libpipewire-0.3-dev:arm64 libspa-0.2-dev:arm64 libgbm-dev:arm64 libdrm-dev:arm64 libegl-dev:arm64 $BINDGEN_DEPS
     export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
     export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
     export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
@@ -56,8 +73,8 @@ elif [ "$INPUT_TARGET" = "aarch64-unknown-linux-gnu" ]; then
 elif [ "$INPUT_TARGET" = "armv7-unknown-linux-gnueabihf" ]; then
     dpkg --add-architecture armhf
     apt-get update
-    apt-get install -y libncurses6:armhf libtinfo6:armhf linux-libc-dev:armhf libncursesw6:armhf libcups2:armhf
-    apt-get install -y --no-install-recommends g++-arm-linux-gnueabihf libc6-dev-armhf-cross libssl-dev:armhf libwebkit2gtk-4.1-dev:armhf libjavascriptcoregtk-4.1-dev:armhf libsoup-3.0-dev:armhf libgtk-3-dev:armhf patchelf:armhf librsvg2-dev:armhf libxdo-dev:armhf libxcb1:armhf libxrandr2:armhf libdbus-1-3:armhf libayatana-appindicator3-dev:armhf libpipewire-0.3-dev:armhf libspa-0.2-dev:armhf libgbm-dev:armhf libdrm-dev:armhf libegl-dev:armhf $BINDGEN_DEPS
+    apt_install libncurses6:armhf libtinfo6:armhf linux-libc-dev:armhf libncursesw6:armhf libcups2:armhf
+    apt_install --no-install-recommends g++-arm-linux-gnueabihf libc6-dev-armhf-cross libssl-dev:armhf libwebkit2gtk-4.1-dev:armhf libjavascriptcoregtk-4.1-dev:armhf libsoup-3.0-dev:armhf libgtk-3-dev:armhf patchelf:armhf xdg-utils librsvg2-dev:armhf libxdo-dev:armhf libxcb1:armhf libxrandr2:armhf libdbus-1-3:armhf libayatana-appindicator3-dev:armhf libpipewire-0.3-dev:armhf libspa-0.2-dev:armhf libgbm-dev:armhf libdrm-dev:armhf libegl-dev:armhf $BINDGEN_DEPS
     export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
     export CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc
     export CXX_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-g++
