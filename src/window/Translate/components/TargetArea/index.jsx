@@ -14,7 +14,8 @@ import { invoke } from '@tauri-apps/api/core';
 
 import * as builtinCollectionServices from '../../../../services/collection';
 import { sourceLanguageAtom, targetLanguageAtom, aiPresetAtom } from '../LanguageArea';
-import { useConfig, useToastStyle, useVoice } from '../../../../hooks';
+import { useConfig, useToastStyle, useVoice, useDisclosure } from '../../../../hooks';
+import GlossaryModal from './GlossaryModal';
 import { sourceTextAtom, detectLanguageAtom, replaceSelectionAtom } from '../SourceArea';
 import { callService, resolveService, withGlossary } from '../../../../utils/translate_dispatch';
 import { addToHistory, buildCacheKey, getCachedTranslation, setCachedTranslation } from '../../../../utils/db';
@@ -75,6 +76,8 @@ export default function TargetArea(props) {
 
     const detectLanguage = useAtomValue(detectLanguageAtom);
     const replaceSelection = useAtomValue(replaceSelectionAtom);
+    const { isOpen: isGlossaryOpen, onOpen: onGlossaryOpen, onOpenChange: onGlossaryOpenChange } = useDisclosure();
+    const [glossaryTerm, setGlossaryTerm] = useState('');
     const [ttsPluginInfo, setTtsPluginInfo] = useState();
     const { t } = useTranslation();
     const textAreaRef = useRef();
@@ -628,6 +631,28 @@ export default function TargetArea(props) {
                             >
                                 {t('translate.speak')}
                             </button>
+                            {/* add to glossary button */}
+                            <button
+                                type='button'
+                                className='translate-action'
+                                disabled={!hasText}
+                                title={t('translate.add_glossary')}
+                                onClick={() => {
+                                    // Whatever the user has highlighted, from
+                                    // either pane -- highlighting the word that
+                                    // came out wrong is how anyone would start.
+                                    // Failing that the whole source, but only
+                                    // when it is short enough to plausibly be a
+                                    // term: a glossary entry for a paragraph
+                                    // would never match anything again.
+                                    const selected = window.getSelection()?.toString().trim() ?? '';
+                                    const source = sourceText.trim();
+                                    setGlossaryTerm(selected || (source.length <= 40 ? source : ''));
+                                    onGlossaryOpen();
+                                }}
+                            >
+                                {t('translate.add_glossary')}
+                            </button>
                             {/* translate back button */}
                             <button
                                 type='button'
@@ -834,6 +859,17 @@ export default function TargetArea(props) {
                     </div>
                 </div>
             </div>
+            <GlossaryModal
+                isOpen={isGlossaryOpen}
+                onOpenChange={onGlossaryOpenChange}
+                defaultTerm={glossaryTerm}
+                // The pair actually being translated, so 'auto' never reaches
+                // the stored row -- `getActiveGlossary` matches on the detected
+                // language, and nobody scopes a term to "auto".
+                fromLang={sourceLanguage === 'auto' ? detectLanguage || 'all' : sourceLanguage}
+                toLang={targetLanguage || 'all'}
+                onSaved={translate}
+            />
         </section>
     );
 }

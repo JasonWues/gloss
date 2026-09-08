@@ -29,6 +29,7 @@ import { useConfig, useToastStyle, useDisclosure } from '../../../../hooks';
 import { LanguageFlag } from '../../../../utils/language';
 import Flag from '../../../../components/Flag';
 import { getDatabase } from '../../../../utils/db';
+import { toCsv } from '../../../../utils/csv';
 import { store } from '../../../../utils/store';
 import { osType } from '../../../../utils/env';
 import {
@@ -68,21 +69,12 @@ function pageWindow(current, totalPages) {
     return out;
 }
 
-// `text`/`result` come straight from the user, so every field is quoted and
-// embedded quotes are doubled. The BOM makes Excel read it as UTF-8.
-function toCsv(rows) {
-    const columns = ['id', 'text', 'source', 'target', 'service', 'result', 'timestamp'];
-    const escape = (value) => `"${String(value ?? '').replaceAll('"', '""')}"`;
-    const lines = [columns.join(',')];
-    for (const row of rows) {
-        lines.push(
-            columns
-                .map((column) => escape(column === 'timestamp' ? new Date(row.timestamp).toISOString() : row[column]))
-                .join(',')
-        );
-    }
-    return '\uFEFF' + lines.join('\r\n');
-}
+const CSV_COLUMNS = ['id', 'text', 'source', 'target', 'service', 'result', 'timestamp'];
+
+// Epoch milliseconds is what the column holds and what the JSON export keeps;
+// ISO 8601 is what a spreadsheet and a reader both understand, so the CSV gets
+// that instead.
+const toCsvRow = (row) => ({ ...row, timestamp: new Date(row.timestamp).toISOString() });
 
 export default function History() {
     const [collectionServiceList] = useConfig('collection_service_list', []);
@@ -226,8 +218,8 @@ export default function History() {
             const db = await getDatabase();
             const { where, params } = buildFilter();
             const rows = await db.select(`SELECT * FROM history${where} ORDER BY timestamp DESC, id DESC`, params);
-            const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2);
-            await invoke('export_history', { path: selected, content });
+            const content = format === 'csv' ? toCsv(CSV_COLUMNS, rows.map(toCsvRow)) : JSON.stringify(rows, null, 2);
+            await invoke('write_user_file', { path: selected, content });
             toast.success(t('config.history.export_success'), { style: toastStyle });
         } catch (e) {
             toast.error(e.toString(), { style: toastStyle });
@@ -626,6 +618,25 @@ export default function History() {
                                                         }}
                                                     >
                                                         {t('common.save')}
+                                                    </Button>
+                                                    {/* Sends the text as it stands in the box above, not
+                                                        as it was recorded: the row is editable, and
+                                                        fixing a bad OCR read before running it again is
+                                                        the obvious reason to want this. Goes through the
+                                                        same entry point as the clipboard monitor, so the
+                                                        translate window picks the service and language
+                                                        pair itself rather than replaying this row's. */}
+                                                    <Button
+                                                        variant='outline'
+                                                        isDisabled={!selectedItem.text?.trim()}
+                                                        onPress={() => {
+                                                            invoke('translate_text', {
+                                                                text: selectedItem.text.trim(),
+                                                            });
+                                                            close();
+                                                        }}
+                                                    >
+                                                        {t('config.history.retranslate')}
                                                     </Button>
                                                     <Button
                                                         isIconOnly

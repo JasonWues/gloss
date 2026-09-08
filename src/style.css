@@ -24,6 +24,7 @@
 @import './window/Recognize/style.css';
 @import './window/Config/pages/Service/style.css';
 @import './window/Config/pages/History/style.css';
+@import './window/Config/pages/General/style.css';
 @import './window/Config/pages/Glossary/style.css';
 @import './window/Config/components/SideBar/style.css';
 @import './window/Config/pages/About/style.css';

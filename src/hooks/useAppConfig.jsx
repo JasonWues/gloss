@@ -3,6 +3,7 @@ import { warn } from '@tauri-apps/plugin-log';
 import { useTheme } from 'next-themes';
 import { useEffect } from 'react';
 
+import { DEFAULT_ACCENT, deriveAccent } from '../utils/accent';
 import { useConfig } from './useConfig';
 
 // Theme, language and typeface, applied to whichever window is rendering. Every
@@ -15,7 +16,8 @@ export function useAppConfig() {
     const [appFont] = useConfig('app_font', 'default');
     const [appFallbackFont] = useConfig('app_fallback_font', 'default');
     const [appFontSize] = useConfig('app_font_size', 16);
-    const { setTheme } = useTheme();
+    const [appAccent] = useConfig('app_accent', DEFAULT_ACCENT);
+    const { setTheme, resolvedTheme } = useTheme();
     const { i18n } = useTranslation();
 
     useEffect(() => {
@@ -60,4 +62,35 @@ export function useAppConfig() {
             document.documentElement.style.fontSize = `${appFontSize}px`;
         }
     }, [appFontSize]);
+
+    // The chosen accent, as inline custom properties on `<html>`.
+    //
+    // Inline is the point: the themes define these five in `@layer base`, and an
+    // element's own style attribute outranks every cascade layer, so this needs
+    // no `!important` and no specificity race. Removing the properties hands the
+    // tokens straight back to whichever theme is on `<html>`, which is why
+    // 'default' is a removal rather than a third set of values to maintain.
+    //
+    // `resolvedTheme` is in the dependencies because the hover direction depends
+    // on it -- a light theme darkens its accent on hover, a dark one lightens --
+    // so switching theme with a custom accent set has to re-derive.
+    useEffect(() => {
+        if (appAccent === null || resolvedTheme === undefined) {
+            return;
+        }
+        const style = document.documentElement.style;
+        const tokens = appAccent === DEFAULT_ACCENT ? null : deriveAccent(appAccent, resolvedTheme === 'dark');
+        if (tokens === null) {
+            // Also the path for a stored value that no longer parses, which is
+            // reachable by hand-editing config.json. Falling back to the theme's
+            // own accent beats leaving the app with no accent at all.
+            for (const name of ['--accent', '--accent-hover', '--accent-foreground', '--focus', '--link']) {
+                style.removeProperty(name);
+            }
+            return;
+        }
+        for (const [name, value] of Object.entries(tokens)) {
+            style.setProperty(name, value);
+        }
+    }, [appAccent, resolvedTheme]);
 }

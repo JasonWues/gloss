@@ -49,6 +49,8 @@
                 "title": "General Settings",
                 "auto_start": "Auto Startup",
                 "check_update": "Check Update",
+                "server_enable": "Local server",
+                "server_enable_desc": "Lets the PopClip and SnipDo extensions drive Gloss. Turn it off if you do not use them. Takes effect on restart.",
                 "server_port": "Listening Port",
                 "server_port_change": "The listening port has been changed, Please restart the application for the changes to take effect",
                 "app_language": "Display Language",
@@ -112,6 +114,10 @@
                 "server_port_desc": "The local port the PopClip and SnipDo extensions call.",
                 "app_language_desc": "Language of the interface, not of translation.",
                 "app_theme_desc": "Follow the system or pin one appearance.",
+                "app_accent": "Accent colour",
+                "app_accent_desc": "The colour of buttons, links, focus rings and selected states.",
+                "accent_default": "Follow the theme",
+                "accent_custom": "Custom colour",
                 "app_font_desc": "Typeface for every window.",
                 "app_fallback_font_desc": "Used for glyphs the main font is missing.",
                 "font_size_desc": "Sets 1rem, so body copy in every window scales with it.",
@@ -277,7 +283,8 @@
                 "clear_confirm": "Clear all {{count}} history entries? This cannot be undone.",
                 "empty": "No history yet.",
                 "entry_count": "{{count}} entries",
-                "showing": "Showing {{shown}} of {{total}}"
+                "showing": "Showing {{shown}} of {{total}}",
+                "retranslate": "Translate again"
             },
             "glossary": {
                 "label": "Glossary",
@@ -289,7 +296,14 @@
                 "enabled": "Enabled",
                 "delete": "Delete",
                 "empty": "No terms yet. A term added here is applied to every translation that matches its languages.",
-                "note": "Services backed by a language model (OpenAI, Ollama, ChatGLM, Gemini) are told the terms before they translate, so a term is applied wherever it occurs. The other services take a language pair and cannot be given instructions, so there a term is only applied to a result that came back with it untranslated — which covers names and jargon, but not a word the engine already translated its own way."
+                "note": "Services backed by a language model (OpenAI, Ollama, ChatGLM, Gemini) are told the terms before they translate, so a term is applied wherever it occurs. The other services take a language pair and cannot be given instructions, so there a term is only applied to a result that came back with it untranslated — which covers names and jargon, but not a word the engine already translated its own way.",
+                "import": "Import",
+                "export_csv": "Export CSV",
+                "export_json": "Export JSON",
+                "export_success": "Glossary exported",
+                "import_success": "Imported {{added}} terms, skipped {{skipped}}",
+                "import_not_a_list": "That file does not contain a list of terms",
+                "scope": "Scope"
             },
             "backup": {
                 "label": "Backup",
@@ -634,7 +648,8 @@
                 "summarize": "Summarize",
                 "grammar": "Fix grammar",
                 "explain_code": "Explain code"
-            }
+            },
+            "add_glossary": "Add term"
         },
         "recognize": {
             "recognize": "Recognize",

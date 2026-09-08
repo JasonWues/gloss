@@ -58,6 +58,11 @@
         --border-secondary: #aaaaaa;
         --separator: #cccccc;
 
+        /* The accent this theme defines, kept separately because a user-chosen
+           accent overrides --accent inline on <html>. The "follow the theme"
+           swatch in Settings paints from this one, so it goes on showing what
+           it would hand back rather than the colour currently overriding it. */
+        --theme-accent: #3578e5;
         --accent: #3578e5;
         --accent-foreground: #ffffff;
         --accent-hover: #2a68d0;

@@ -11,6 +11,7 @@ import { useTheme } from 'next-themes';
 import { useConfig } from '../../../../hooks/useConfig';
 import { LanguageFlag } from '../../../../utils/language';
 import Flag from '../../../../components/Flag';
+import { ACCENT_PRESETS, DEFAULT_ACCENT } from '../../../../utils/accent';
 import { themeOptions } from '../../../../utils/theme';
 import { useToastStyle } from '../../../../hooks';
 import { osType } from '../../../../utils/env';
@@ -35,12 +36,14 @@ export default function General() {
     const [autoStart, setAutoStart] = useState(false);
     const [fontList, setFontList] = useState(null);
     const [checkUpdate, setCheckUpdate] = useConfig('check_update', true);
+    const [serverEnable, setServerEnable] = useConfig('server_enable', true);
     const [serverPort, setServerPort] = useConfig('server_port', 60828);
     const [appLanguage, setAppLanguage] = useConfig('app_language', 'en');
     const [appTheme, setAppTheme] = useConfig('app_theme', 'system');
     const [appFont, setAppFont] = useConfig('app_font', 'default');
     const [appFallbackFont, setAppFallbackFont] = useConfig('app_fallback_font', 'default');
     const [appFontSize, setAppFontSize] = useConfig('app_font_size', 16);
+    const [appAccent, setAppAccent] = useConfig('app_accent', DEFAULT_ACCENT);
     const [transparent, setTransparent] = useConfig('transparent', true);
     const [devMode, setDevMode] = useConfig('dev_mode', false);
     const [trayClickEvent, setTrayClickEvent] = useConfig('tray_click_event', 'config');
@@ -139,6 +142,33 @@ export default function General() {
                             isSelected={checkUpdate}
                             onChange={(v) => {
                                 setCheckUpdate(v);
+                            }}
+                        >
+                            <Switch.Content>
+                                <Switch.Control>
+                                    <Switch.Thumb />
+                                </Switch.Control>
+                            </Switch.Content>
+                        </Switch>
+                    )}
+                </Row>
+                <Row
+                    label={t('config.general.server_enable')}
+                    desc={t('config.general.server_enable_desc')}
+                >
+                    {serverEnable !== null && (
+                        <Switch
+                            className='justify-center items-center'
+                            isSelected={serverEnable}
+                            onChange={(v) => {
+                                setServerEnable(v);
+                                // Same story as the port below: the listener is
+                                // bound once at startup, so the switch describes
+                                // the next launch rather than this one.
+                                toast.success(t('config.general.server_port_change'), {
+                                    duration: 3000,
+                                    style: toastStyle,
+                                });
                             }}
                         >
                             <Switch.Content>
@@ -395,6 +425,58 @@ export default function General() {
                                 </Dropdown.Menu>
                             </Dropdown.Popover>
                         </Dropdown>
+                    )}
+                </Row>
+                <Row
+                    label={t('config.general.app_accent')}
+                    desc={t('config.general.app_accent_desc')}
+                >
+                    {appAccent !== null && (
+                        <div className='accent-picker'>
+                            {/* Hands the five tokens back to the theme. Drawn as
+                                a swatch like the rest so the row reads as one set
+                                of choices rather than a control plus an escape
+                                hatch. */}
+                            <button
+                                type='button'
+                                className={`accent-swatch accent-swatch--default${
+                                    appAccent === DEFAULT_ACCENT ? ' accent-swatch--on' : ''
+                                }`}
+                                title={t('config.general.accent_default')}
+                                aria-label={t('config.general.accent_default')}
+                                aria-pressed={appAccent === DEFAULT_ACCENT}
+                                onClick={() => setAppAccent(DEFAULT_ACCENT)}
+                            />
+                            {ACCENT_PRESETS.map((colour) => (
+                                <button
+                                    key={colour}
+                                    type='button'
+                                    className={`accent-swatch${appAccent === colour ? ' accent-swatch--on' : ''}`}
+                                    style={{ background: colour }}
+                                    title={colour}
+                                    aria-label={colour}
+                                    aria-pressed={appAccent === colour}
+                                    onClick={() => setAppAccent(colour)}
+                                />
+                            ))}
+                            {/* A native colour input rather than v3's
+                                ColorPicker: this is one value with no popover to
+                                manage, and the OS picker is the one the user
+                                already knows. Styled down to the same square as
+                                the swatches beside it. */}
+                            <input
+                                type='color'
+                                className={`accent-swatch accent-swatch--custom${
+                                    appAccent !== DEFAULT_ACCENT && !ACCENT_PRESETS.includes(appAccent)
+                                        ? ' accent-swatch--on'
+                                        : ''
+                                }`}
+                                value={appAccent === DEFAULT_ACCENT ? '#3578e5' : appAccent}
+                                title={t('config.general.accent_custom')}
+                                aria-label={t('config.general.accent_custom')}
+                                onChange={(e) => setAppAccent(e.target.value)}
+                            />
+                        </div>
                     )}
                 </Row>
                 <Row

@@ -1,0 +1,88 @@
+/*
+  The accent swatches on the General page.
+
+  A row of squares rather than a dropdown of colour names, because the choice is
+  the colour itself -- naming eight of them would only ask the reader to
+  translate back. Sized in px like the rest of the chrome (see the header of
+  src/styles/flat.css), so the row keeps its proportions whatever reading size
+  the user picked.
+*/
+
+@layer components {
+    .accent-picker {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .accent-swatch {
+        width: 22px;
+        height: 22px;
+        flex: none;
+        padding: 0;
+        border: 2px solid var(--border-secondary);
+        border-radius: 0;
+        cursor: pointer;
+        /* The selected ring is drawn as an outline rather than a wider border,
+           so picking a colour does not move the swatches beside it. */
+        outline-offset: 2px;
+    }
+
+    .accent-swatch:hover {
+        border-color: var(--foreground);
+    }
+
+    .accent-swatch--on {
+        outline: 2px solid var(--foreground);
+    }
+
+    .accent-swatch:focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+    }
+
+    /*
+      "Follow the theme". Painted from `--theme-accent`, not `--accent`: a chosen
+      accent overrides the latter inline on <html>, so this swatch would have
+      previewed the colour currently replacing the theme's rather than the one it
+      would hand back. Reading the theme's own token means it stays honest, and
+      still updates on a theme switch with nothing having to re-render.
+    */
+    .accent-swatch--default {
+        background: var(--theme-accent);
+        /* A diagonal through it, to say "whatever the theme says" rather than
+           "this particular blue" -- otherwise it is indistinguishable from the
+           preset that happens to match the current theme's accent. */
+        background-image: linear-gradient(
+            to bottom right,
+            transparent calc(50% - 1px),
+            var(--background) calc(50% - 1px),
+            var(--background) calc(50% + 1px),
+            transparent calc(50% + 1px)
+        );
+    }
+
+    /*
+      `<input type="color">` draws a bordered, padded well by default and,
+      in Chromium, an inner swatch element that keeps its own rounding. Both
+      layers have to be flattened or this one square is the only rounded thing
+      in the row.
+    */
+    .accent-swatch--custom {
+        appearance: none;
+        -webkit-appearance: none;
+        background: none;
+        overflow: hidden;
+    }
+
+    .accent-swatch--custom::-webkit-color-swatch-wrapper {
+        padding: 0;
+    }
+
+    .accent-swatch--custom::-webkit-color-swatch {
+        border: none;
+        border-radius: 0;
+    }
+}

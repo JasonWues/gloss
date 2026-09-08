@@ -245,6 +245,7 @@ fn main() {
             get_text,
             get_replace_selection,
             replace_selection,
+            translate_text,
             cut_image,
             get_base64,
             copy_img,
@@ -265,7 +266,8 @@ fn main() {
             webdav,
             local,
             install_plugin,
-            export_history,
+            write_user_file,
+            read_user_file,
             font_list,
             aliyun
         ])

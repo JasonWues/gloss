@@ -43,6 +43,26 @@ pub async fn replace_selection(text: String) -> bool {
     }
 }
 
+/// Hand `text` to the translate window and bring it up, the way the clipboard
+/// monitor and the local server already do.
+///
+/// `text_translate` clears the replace flag as a matter of course, since it
+/// writes the text through `set_pending_text` -- so a translation started from
+/// the history page cannot inherit a replace that was armed earlier.
+///
+/// `command(async)`, and that is not a nicety -- it is the same reason
+/// `updater_window` carries it. A plain `#[tauri::command]` runs ON the main
+/// thread, and `text_translate` builds a window, whose builder blocks until the
+/// event loop services the request. The event loop is that same main thread, so
+/// it deadlocks: the window is created and never finishes, and the calling
+/// webview's `invoke` never resolves, wedging that window too. The clipboard
+/// monitor and the local server both call `text_translate` from threads of
+/// their own, which is why neither has ever met this.
+#[tauri::command(async)]
+pub fn translate_text(text: String) {
+    crate::window::text_translate(text);
+}
+
 #[tauri::command]
 pub fn reload_store() {
     let state = APP.get().unwrap().state::<StoreWrapper>();
@@ -219,16 +239,28 @@ pub fn font_list() -> Result<Vec<String>, Error> {
     Ok(source.all_families()?)
 }
 
-// The history export writes to a path the user picked in a save dialog, which
-// is outside the fs plugin's `$APPCONFIG`/`$APPCACHE` scope. Going through a
-// command keeps that scope closed, the same way the local backup does.
+// The history and glossary exports write to a path the user picked in a save
+// dialog, which is outside the fs plugin's `$APPCONFIG`/`$APPCACHE` scope. Going
+// through a command keeps that scope closed, the same way the local backup does.
+// Renamed from `export_history` when the glossary grew an export of its own --
+// it was never about history, only about writing where the fs scope will not.
 // Not `command(async)`: `Error` carries a `Box<dyn std::error::Error>`, which is
 // not `Send`, so the generated future could not be spawned. The other commands
 // returning `Error` (`install_plugin`, `run_binary`) are sync for the same reason.
 #[tauri::command]
-pub fn export_history(path: String, content: String) -> Result<(), Error> {
+pub fn write_user_file(path: String, content: String) -> Result<(), Error> {
     std::fs::write(path, content)?;
     Ok(())
+}
+
+/// The other direction, for the glossary import.
+///
+/// Same reasoning as above: the path comes from an open dialog, so it is the
+/// user pointing at a file rather than the page reaching for one, and the fs
+/// plugin's scope stays shut.
+#[tauri::command]
+pub fn read_user_file(path: String) -> Result<String, Error> {
+    Ok(std::fs::read_to_string(path)?)
 }
 
 #[tauri::command]

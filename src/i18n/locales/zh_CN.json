@@ -49,6 +49,8 @@
                 "title": "常规设置",
                 "auto_start": "开机时启动应用",
                 "check_update": "启动时检查更新",
+                "server_enable": "本地服务器",
+                "server_enable_desc": "供 PopClip 与 SnipDo 扩展调用 Gloss。不用它们的话可以关掉。重启后生效。",
                 "server_port": "监听端口",
                 "server_port_change": "监听端口已更改，重启应用生效",
                 "app_language": "显示语言",
@@ -112,6 +114,10 @@
                 "server_port_desc": "PopClip 与 SnipDo 扩展调用的本地端口。",
                 "app_language_desc": "界面语言，不是翻译语言。",
                 "app_theme_desc": "跟随系统，或固定为某一种外观。",
+                "app_accent": "强调色",
+                "app_accent_desc": "按钮、链接、焦点环和选中状态的颜色。",
+                "accent_default": "跟随主题",
+                "accent_custom": "自定义颜色",
                 "app_font_desc": "所有窗口使用的字体。",
                 "app_fallback_font_desc": "主字体缺字时用它补上。",
                 "font_size_desc": "决定 1rem 的大小，所有窗口的正文随之缩放。",
@@ -277,7 +283,8 @@
                 "clear_confirm": "确定要清空全部 {{count}} 条历史记录吗？此操作无法撤销。",
                 "empty": "暂无历史记录。",
                 "entry_count": "{{count}} 条",
-                "showing": "显示 {{shown}} / {{total}}"
+                "showing": "显示 {{shown}} / {{total}}",
+                "retranslate": "重新翻译"
             },
             "glossary": {
                 "label": "术语表",
@@ -289,7 +296,14 @@
                 "enabled": "启用",
                 "delete": "删除",
                 "empty": "还没有术语。在这里添加的术语会应用到所有语言匹配的翻译上。",
-                "note": "基于大语言模型的服务(OpenAI、Ollama、智谱、Gemini)会在翻译前收到这些术语,因此术语在任何位置都会生效。其余服务只接受语言对、无法附加指令,所以只能对译文中原样保留下来的术语生效——这覆盖了专有名词和行话,但覆盖不了引擎已经按自己方式译过的词。"
+                "note": "基于大语言模型的服务(OpenAI、Ollama、智谱、Gemini)会在翻译前收到这些术语,因此术语在任何位置都会生效。其余服务只接受语言对、无法附加指令,所以只能对译文中原样保留下来的术语生效——这覆盖了专有名词和行话,但覆盖不了引擎已经按自己方式译过的词。",
+                "import": "导入",
+                "export_csv": "导出 CSV",
+                "export_json": "导出 JSON",
+                "export_success": "术语表已导出",
+                "import_success": "导入 {{added}} 条，跳过 {{skipped}} 条",
+                "import_not_a_list": "该文件不是一个术语列表",
+                "scope": "作用范围"
             },
             "backup": {
                 "label": "备份设置",
@@ -634,7 +648,8 @@
                 "summarize": "总结",
                 "grammar": "语法纠错",
                 "explain_code": "解释代码"
-            }
+            },
+            "add_glossary": "加入术语表"
         },
         "recognize": {
             "recognize": "重新识别",

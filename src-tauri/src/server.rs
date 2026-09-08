@@ -5,11 +5,87 @@ use log::{error, info, warn};
 use std::panic::AssertUnwindSafe;
 use std::thread;
 use tauri_plugin_notification::NotificationExt;
-use tiny_http::{Request, Response, Server};
+use tiny_http::{Method, Request, Response, Server};
 
 pub const DEFAULT_SERVER_PORT: i64 = 60828;
 
+/// Whether this request is one the server should act on.
+///
+/// Binding to 127.0.0.1 keeps the network out, but not the browser: any page the
+/// user visits may issue a cross-origin request to localhost. It cannot read the
+/// reply -- every handler below answers a constant string and no CORS header is
+/// ever sent -- but the side effect still happens, and every endpoint here is a
+/// side effect. Two of them, `/ocr_recognize` and `/ocr_translate`, take a
+/// screenshot: before this, a page could have the user's screen captured and
+/// pushed through whichever OCR service they had configured, by loading an
+/// `<img>` pointed at this port.
+///
+/// Three checks, each closing a route the others leave open. None of them costs
+/// a legitimate caller anything -- curl, PowerShell and the app's own Recognize
+/// window all POST and send none of these headers.
+fn vet(request: &Request) -> Result<(), (u16, &'static str)> {
+    // 1. POST only. Every endpoint acts, so none of them was ever a legal GET,
+    //    and requiring the method a browser cannot reach from markup rules out
+    //    `<img src>`, `<script src>`, `<link>`, prefetch and the address bar in
+    //    one go. It also stops an OPTIONS preflight running a handler: the match
+    //    below is on the url alone, so before this a preflight for `/translate`
+    //    executed the translation it was supposed to be asking permission for.
+    if *request.method() != Method::Post {
+        return Err((405, "this endpoint takes POST"));
+    }
+
+    for header in request.headers() {
+        let value = header.value.as_str();
+        // 2. No `Origin`. Browsers attach it to every cross-origin request that
+        //    is not a simple GET -- so to every form submission and every fetch,
+        //    including the `no-cors` ones whose replies they will not show the
+        //    caller. Nothing that legitimately drives this server sends one.
+        if header.field.equiv("origin") {
+            warn!("Rejected a request carrying Origin: {value}");
+            return Err((403, "cross-origin requests are not accepted"));
+        }
+        // 3. Fetch Metadata. Current browsers label who started a request, which
+        //    catches the cross-site case even where no Origin is attached, and
+        //    is the check that still holds if a future markup element learns to
+        //    POST. `none` is a user typing the address; `same-origin` cannot
+        //    arise, since this server serves no pages -- both are harmless.
+        if header.field.equiv("sec-fetch-site") && value != "same-origin" && value != "none" {
+            warn!("Rejected a request with Sec-Fetch-Site: {value}");
+            return Err((403, "cross-site requests are not accepted"));
+        }
+        // 4. The Host has to be the loopback the socket is bound to. Without
+        //    this, a name the attacker controls can be pointed at 127.0.0.1
+        //    after the page has loaded -- DNS rebinding -- and the request then
+        //    counts as same-origin, which would satisfy both checks above.
+        if header.field.equiv("host") {
+            let host = value.rsplit_once(':').map_or(value, |(name, _)| name);
+            if host != "127.0.0.1" && host != "localhost" && host != "[::1]" && host != "::1" {
+                warn!("Rejected a request for host {value}");
+                return Err((403, "unexpected Host"));
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn start_server() {
+    // Off is a real answer here. The server exists for the PopClip and SnipDo
+    // extensions in `.scripts/`, and someone who does not use them was still
+    // getting a listener they never asked for -- one that, until `vet` above,
+    // any web page could reach. Bound at startup, so like the port it takes a
+    // restart to change; Settings says so.
+    let enabled = match get("server_enable").and_then(|v| v.as_bool()) {
+        Some(v) => v,
+        None => {
+            set("server_enable", true);
+            true
+        }
+    };
+    if !enabled {
+        info!("Local server disabled by setting");
+        return;
+    }
+
     // `server_port` comes out of config.json, which the user can edit by hand, so
     // a value of the wrong JSON type is ordinary input rather than a bug. It used
     // to be `as_i64().unwrap()`, which panicked here -- above the spawn, and so
@@ -61,7 +137,11 @@ pub fn start_server() {
 }
 
 fn http_handle(request: Request) {
-    info!("Handle {} request", request.url());
+    info!("Handle {} {} request", request.method(), request.url());
+    if let Err((status, reason)) = vet(&request) {
+        respond(request, status, reason);
+        return;
+    }
     match request.url() {
         "/" => handle_translate(request),
         "/config" => handle_config(request),

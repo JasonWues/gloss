@@ -1,6 +1,6 @@
 import { Dropdown, Button, Label } from '@heroui/react';
 import { atom, useAtom, useSetAtom, useAtomValue } from 'jotai';
-import { fetch, Body } from '../../../utils/http';
+import { invoke } from '@tauri-apps/api/core';
 import { useTranslation } from 'react-i18next';
 import { HiTranslate } from 'react-icons/hi';
 import { GiCycle } from 'react-icons/gi';
@@ -28,7 +28,6 @@ export default function ControlArea(props) {
     const { serviceInstanceConfigMap, serviceInstanceList } = props;
     const pluginList = useAtomValue(pluginListAtom);
     const [recognizeLanguage] = useConfig('recognize_language', 'auto');
-    const [serverPort] = useConfig('server_port', 60828);
     const setRecognizeFlag = useSetAtom(recognizeFlagAtom);
     const [currentServiceInstanceKey, setCurrentServiceInstanceKey] = useAtom(currentServiceInstanceKeyAtom);
     const [language, setLanguage] = useAtom(languageAtom);
@@ -166,13 +165,19 @@ export default function ControlArea(props) {
                     type='button'
                     className='recognize-cell'
                     disabled={!text}
-                    onClick={async () => {
+                    onClick={() => {
                         if (text) {
-                            void fetch(`http://127.0.0.1:${serverPort}/translate`, {
-                                method: 'POST',
-                                body: Body.text(text),
-                                responseType: 2,
-                            });
+                            // Straight to the command, where this used to POST to
+                            // Gloss's own local server -- an HTTP round-trip out
+                            // of the process and back in, to reach a function
+                            // sitting in the same binary. It also made an
+                            // in-app button depend on a server that exists for
+                            // external integrations: it now answers only POSTs
+                            // without an Origin, and the http plugin attaches
+                            // one, so this had stopped working -- and it would
+                            // have broken again for anyone who turned the server
+                            // off in Settings.
+                            void invoke('translate_text', { text });
                         }
                     }}
                 >
