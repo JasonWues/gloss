@@ -36,6 +36,36 @@ import {
 
 const appWindow = getCurrentWebviewWindow();
 
+/*
+    How close to the end still counts as "at the bottom". Fractional layout --
+    a scaled display, a fractional line height -- means the last pixel is rarely
+    landed on exactly, and demanding equality would make following the stream a
+    thing the reader could never quite be doing.
+*/
+const BOTTOM_TOLERANCE_PX = 8;
+
+function isAtBottom(scroller) {
+    return scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop <= BOTTOM_TOLERANCE_PX;
+}
+
+/*
+    The nearest ancestor that actually scrolls.
+
+    By computed style rather than by class name: the column this finds is
+    `overflow-y-auto` today, and a rename of that utility or a restyle that
+    moved the scrolling elsewhere would otherwise silently bring back the
+    scroll-resetting it exists to prevent -- with nothing failing to say so.
+*/
+function findScroller(node) {
+    for (let element = node.parentElement; element !== null; element = element.parentElement) {
+        const overflowY = getComputedStyle(element).overflowY;
+        if (overflowY === 'auto' || overflowY === 'scroll') {
+            return element;
+        }
+    }
+    return null;
+}
+
 let translateID = [];
 
 export default function TargetArea(props) {
@@ -81,6 +111,8 @@ export default function TargetArea(props) {
     const [ttsPluginInfo, setTtsPluginInfo] = useState();
     const { t } = useTranslation();
     const textAreaRef = useRef();
+    // The scrolling ancestor, looked up once -- see the sizing effect below.
+    const scrollerRef = useRef(null);
     const toastStyle = useToastStyle();
     const speak = useVoice();
 
@@ -324,13 +356,48 @@ export default function TargetArea(props) {
         }).then(onResolve, onReject);
     };
 
-    // hide empty textarea
+    /*
+        Size the textarea to its content, and put the scroll position back
+        afterwards.
+
+        The collapse to 0px is not removable: `scrollHeight` never reports less
+        than the element's current height, so without it this would grow and
+        never shrink. But it is also why the scroll position has to be saved.
+        This textarea sizes itself to fit and so never scrolls; the scrollbar
+        belongs to the window's one column, several levels up in
+        `Translate/index.jsx`. Zeroing the height takes the whole result out of
+        that column's content, the browser clamps its scrollTop to the new
+        maximum -- near zero -- and restoring the height does not undo the
+        clamp.
+
+        With a streaming service this effect runs on every chunk, once per
+        panel, so dragging the scrollbar down was being undone tens of
+        milliseconds later, over and over, for as long as the translation took.
+    */
     useEffect(() => {
-        if (textAreaRef.current !== null) {
-            textAreaRef.current.style.height = '0px';
-            if (result !== '') {
-                textAreaRef.current.style.height = textAreaRef.current.scrollHeight + 'px';
-            }
+        const textArea = textAreaRef.current;
+        if (textArea === null) {
+            return;
+        }
+        if (scrollerRef.current === null) {
+            scrollerRef.current = findScroller(textArea);
+        }
+        const scroller = scrollerRef.current;
+
+        // Read before the collapse, or the answer is about the collapsed layout.
+        const previousTop = scroller === null ? 0 : scroller.scrollTop;
+        const following = scroller !== null && isAtBottom(scroller);
+
+        textArea.style.height = '0px';
+        if (result !== '') {
+            textArea.style.height = textArea.scrollHeight + 'px';
+        }
+
+        if (scroller !== null) {
+            // A reader already at the bottom is following the stream and should
+            // keep following it; anyone who has scrolled back stays where they
+            // put themselves. Past the maximum is clamped for us.
+            scroller.scrollTop = following ? scroller.scrollHeight : previousTop;
         }
     }, [result]);
 
