@@ -388,26 +388,20 @@ jobs:
             fail-fast: false
             matrix:
                 platform: [ubuntu-latest]
-                target:
-                    [
-                        x86_64-unknown-linux-gnu,
-                        i686-unknown-linux-gnu,
-                        aarch64-unknown-linux-gnu,
-                        armv7-unknown-linux-gnueabihf,
-                    ]
+                # 32-bit x86 and armv7 are gone. Both had been failing for as
+                # long as anyone had looked -- the cross-architecture apt install
+                # they need does not resolve on bookworm -- and neither is a
+                # desktop this application plausibly runs on. aarch64 stays,
+                # since ARM laptops and single-board machines are real, and it
+                # fails for the same reason the other two did.
+                target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu]
                 include:
                     - os: ubuntu-latest
                       target: x86_64-unknown-linux-gnu
                       toolchain: stable-x86_64-unknown-linux-gnu
                     - os: ubuntu-latest
-                      target: i686-unknown-linux-gnu
-                      toolchain: stable-i686-unknown-linux-gnu
-                    - os: ubuntu-latest
                       target: aarch64-unknown-linux-gnu
                       toolchain: stable-aarch64-unknown-linux-gnu
-                    - os: ubuntu-latest
-                      target: armv7-unknown-linux-gnueabihf
-                      toolchain: stable-armv7-unknown-linux-gnueabihf
         runs-on: ${{ matrix.platform }}
         steps:
             - uses: actions/download-artifact@v4

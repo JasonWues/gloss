@@ -48,15 +48,6 @@ apt_install() {
 if [ "$INPUT_TARGET" = "x86_64-unknown-linux-gnu" ]; then
     apt-get update
     apt_install libgtk-3-dev libwebkit2gtk-4.1-dev libjavascriptcoregtk-4.1-dev libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev xdg-utils patchelf libxdo-dev libxcb1 libxrandr2 libdbus-1-3 libpipewire-0.3-dev libspa-0.2-dev libgbm-dev libdrm-dev libegl-dev $BINDGEN_DEPS
-elif [ "$INPUT_TARGET" = "i686-unknown-linux-gnu" ]; then
-    dpkg --add-architecture i386
-    apt-get update
-    apt_install libstdc++6:i386 libgdk-pixbuf2.0-dev:i386 libatomic1:i386 gcc-multilib g++-multilib libwebkit2gtk-4.1-dev:i386 libjavascriptcoregtk-4.1-dev:i386 libsoup-3.0-dev:i386 libssl-dev:i386 libgtk-3-dev:i386 librsvg2-dev:i386 xdg-utils patchelf:i386 libxdo-dev:i386 libxcb1:i386 libxrandr2:i386 libdbus-1-3:i386 libayatana-appindicator3-dev:i386 libpipewire-0.3-dev:i386 libspa-0.2-dev:i386 libgbm-dev:i386 libdrm-dev:i386 libegl-dev:i386 $BINDGEN_DEPS
-    export PKG_CONFIG_PATH=/usr/lib/i386-linux-gnu/pkgconfig/:$PKG_CONFIG_PATH
-    export PKG_CONFIG_SYSROOT_DIR=/
-    # libspa-sys' build.rs never passes --target to clang, so bindgen would parse
-    # the i386 headers with host (x86_64) type sizes. Point it at the target.
-    export BINDGEN_EXTRA_CLANG_ARGS="--target=i686-linux-gnu -I/usr/include/i386-linux-gnu"
 elif [ "$INPUT_TARGET" = "aarch64-unknown-linux-gnu" ]; then
     dpkg --add-architecture arm64
     apt-get update
@@ -67,22 +58,9 @@ elif [ "$INPUT_TARGET" = "aarch64-unknown-linux-gnu" ]; then
     export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
     export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
     export PKG_CONFIG_ALLOW_CROSS=1
-    # See the i386 branch: bindgen needs the target spelled out, or libspa-sys
-    # gets bindings sized for the host.
+    # libspa-sys's build.rs never passes --target to clang, so bindgen would
+    # otherwise parse these headers with host (x86_64) type sizes.
     export BINDGEN_EXTRA_CLANG_ARGS="--target=aarch64-linux-gnu -I/usr/include/aarch64-linux-gnu"
-elif [ "$INPUT_TARGET" = "armv7-unknown-linux-gnueabihf" ]; then
-    dpkg --add-architecture armhf
-    apt-get update
-    apt_install libncurses6:armhf libtinfo6:armhf linux-libc-dev:armhf libncursesw6:armhf libcups2:armhf
-    apt_install --no-install-recommends g++-arm-linux-gnueabihf libc6-dev-armhf-cross libssl-dev:armhf libwebkit2gtk-4.1-dev:armhf libjavascriptcoregtk-4.1-dev:armhf libsoup-3.0-dev:armhf libgtk-3-dev:armhf patchelf:armhf xdg-utils librsvg2-dev:armhf libxdo-dev:armhf libxcb1:armhf libxrandr2:armhf libdbus-1-3:armhf libayatana-appindicator3-dev:armhf libpipewire-0.3-dev:armhf libspa-0.2-dev:armhf libgbm-dev:armhf libdrm-dev:armhf libegl-dev:armhf $BINDGEN_DEPS
-    export CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc
-    export CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc
-    export CXX_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-g++
-    export PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
-    export PKG_CONFIG_ALLOW_CROSS=1
-    # See the i386 branch: bindgen needs the target spelled out, or libspa-sys
-    # gets bindings sized for the host.
-    export BINDGEN_EXTRA_CLANG_ARGS="--target=arm-linux-gnueabihf -I/usr/include/arm-linux-gnueabihf"
 else
     echo "Unknown target: $INPUT_TARGET" && exit 1
 fi
