@@ -1,17 +1,9 @@
-## 4.5.1 (2026-09-08)
+## 4.5.2 (2026-09-17)
 
-A scrolling fix, and the release machinery around 4.5.0.
+One fix, and it is the kind that ends the session: a hotkey pressed while the
+previous one was still opening its window deadlocked the main thread, taking
+the windows, the tray menu and the exit path down with it.
 
 ### Bugs fixed:
 
--   **Scrolling a long translation while it streams now works.** Dragging the scrollbar moved a little and snapped back, over and over, for as long as the translation ran: each chunk resized the result box by briefly collapsing it, which took the text out of the window's height and made the browser throw the scroll position away. If you are already at the bottom it now follows the output instead, and if you have scrolled back to re-read something it leaves you where you are
--   **Auto-update was pointing at files that do not exist.** The manifest shipped clients poll still named every download `pot_` rather than `Gloss_`, so each one 404'd — and the script treats a failed download as an empty signature rather than an error, so it published broken entries instead of failing. Every platform was affected. The three Linux entries also pointed at the macOS bundle, which would have offered a Linux machine a `.app`
-
-### Removed:
-
--   the 32-bit x86 and armv7 Linux builds. Both had been failing for as long as anyone had looked, and neither is a desktop this application plausibly runs on. 64-bit x86 and ARM stay
-
-### Internal:
-
--   CI caches the pnpm store and, on macOS and Windows, the compiled Rust dependencies
--   a failed package install in the Linux build container now stops the build and says so, instead of letting it run on for ten minutes and die with an unrelated-looking error about pkg-config
+-   **A global shortcut pressed while the previous one was still starting no longer freezes the application.** The plugin that owns the shortcuts answers a key press while holding the mutex over its shortcut table, and that lock stays held for the whole of the handler it calls — and here that is a long time, because the handler builds the screenshot overlay and WebView2's startup waits by pumping messages on the main thread. The second key press was therefore delivered *inside* the first one, re-entered the same handler, and locked a mutex the thread was already holding. `std::sync::Mutex` is not reentrant, so it waited for itself and never came back: no overlay, no tray, no way out but Task Manager. Hotkeys are now answered first and run as their own event-loop message, which hands the lock back before anything can pump; a press that arrives while a session is still starting is ignored and logged rather than starting a second window on top of one that is half built
