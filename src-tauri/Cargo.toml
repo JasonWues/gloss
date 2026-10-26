@@ -76,6 +76,10 @@ thiserror = "2.0"
 font-kit = "0.14.2"
 image = "0.25.4"
 whatlang = "0.18.0"
+# Watches the user's hotkey blocklist without shelling out to platform-specific
+# process-list commands. Only process names are refreshed by hotkey_suppression.
+# This release has MSRV 1.75; sysinfo 0.39 requires Rust 1.95.
+sysinfo = { version = "=0.36.1", default-features = false, features = ["system"] }
 percent-encoding = "2.3.2"
 # Pinned to the version tauri-plugin-mcp-bridge already pulls in, so the two
 # share one build instead of compiling tungstenite twice.

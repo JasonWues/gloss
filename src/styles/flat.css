@@ -387,8 +387,20 @@
         padding: 0 14px;
     }
 
+    /* Multi-line process lists need the same squared edge without the 32px
+       single-line height used by the inputs above. */
+    .flat-row__control .textarea {
+        min-height: 96px;
+        padding: 8px 12px;
+        border: 2px solid var(--border-secondary);
+        border-radius: 0;
+        background: transparent;
+        font-size: 13px;
+    }
+
     .flat-row__control .button:focus-visible,
-    .flat-row__control .input:focus-visible {
+    .flat-row__control .input:focus-visible,
+    .flat-row__control .textarea:focus-visible {
         outline: 2px solid var(--focus);
         outline-offset: 2px;
     }

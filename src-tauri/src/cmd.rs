@@ -67,6 +67,7 @@ pub fn translate_text(text: String) {
 pub fn reload_store() {
     let state = APP.get().unwrap().state::<StoreWrapper>();
     state.0.reload().unwrap();
+    crate::hotkey_suppression::reload_hotkey_suppression();
 }
 
 #[tauri::command]

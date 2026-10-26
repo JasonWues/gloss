@@ -1,14 +1,19 @@
 import { unregister, isRegistered } from '@tauri-apps/plugin-global-shortcut';
+import { listen } from '@tauri-apps/api/event';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { Button, Input, InputGroup } from '@heroui/react';
-import React from 'react';
+import { Button, InputGroup, TextArea, TextField } from '@heroui/react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { useConfig } from '../../../../hooks/useConfig';
 import { useToastStyle } from '../../../../hooks';
 import { osType } from '../../../../utils/env';
 import { Section, Row } from '../../components/Section';
 import { invoke } from '@tauri-apps/api/core';
+
+import ProcessPicker from './ProcessPicker';
+
+const SUPPRESSION_STATUS_EVENT = 'hotkey_suppression_changed';
 
 const keyMap = {
     Backquote: '`',
@@ -49,9 +54,93 @@ export default function Hotkey() {
     const [inputTranslate, setInputTranslate] = useConfig('hotkey_input_translate', '');
     const [ocrRecognize, setOcrRecognize] = useConfig('hotkey_ocr_recognize', '');
     const [ocrTranslate, setOcrTranslate] = useConfig('hotkey_ocr_translate', '');
+    const [suppressedProcesses, setSuppressedProcesses] = useConfig('hotkey_suppressed_processes', []);
+    const [processText, setProcessText] = useState('');
+    const [savingProcesses, setSavingProcesses] = useState(false);
+    const [hotkeysSuspended, setHotkeysSuspended] = useState(false);
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [runningProcesses, setRunningProcesses] = useState([]);
+    const [loadingProcesses, setLoadingProcesses] = useState(false);
+    const [addingProcesses, setAddingProcesses] = useState(false);
+    const processTextRef = useRef(processText);
+    processTextRef.current = processText;
 
     const { t } = useTranslation();
     const toastStyle = useToastStyle();
+
+    useEffect(() => {
+        if (suppressedProcesses !== null) {
+            setProcessText(suppressedProcesses.join('\n'));
+        }
+    }, [suppressedProcesses]);
+
+    useEffect(() => {
+        let alive = true;
+        invoke('get_hotkey_suppression_status').then((active) => {
+            if (alive) setHotkeysSuspended(active);
+        });
+        const unlisten = listen(SUPPRESSION_STATUS_EVENT, (event) => {
+            if (alive) setHotkeysSuspended(event.payload);
+        });
+        return () => {
+            alive = false;
+            unlisten.then((stop) => stop()).catch(() => {});
+        };
+    }, []);
+
+    async function persistProcesses(processNames) {
+        const saved = await invoke('update_hotkey_suppressed_processes', { processNames });
+        setSuppressedProcesses(saved, true);
+        return saved;
+    }
+
+    async function saveSuppressedProcesses() {
+        setSavingProcesses(true);
+        try {
+            const processNames = processTextRef.current
+                .split(/\r?\n/)
+                .map((name) => name.trim())
+                .filter(Boolean);
+            await persistProcesses(processNames);
+            toast.success(t('config.hotkey.suppressed_processes_success'), { style: toastStyle });
+        } catch (error) {
+            toast.error(`${error}`, { style: toastStyle });
+        } finally {
+            setSavingProcesses(false);
+        }
+    }
+
+    async function openProcessPicker() {
+        setPickerOpen(true);
+        setLoadingProcesses(true);
+        try {
+            setRunningProcesses(await invoke('list_running_processes'));
+        } catch (error) {
+            toast.error(`${error}`, { style: toastStyle });
+            setPickerOpen(false);
+        } finally {
+            setLoadingProcesses(false);
+        }
+    }
+
+    async function addPickedProcesses(names, close) {
+        setAddingProcesses(true);
+        try {
+            // Include text typed but not manually saved yet; picking a process
+            // is itself a save action and must not discard that text. Rust
+            // normalizes and deduplicates the combined list before persisting.
+            const current = processTextRef.current.split(/\r?\n/);
+            await persistProcesses([...current, ...names]);
+            toast.success(t('config.hotkey.process_picker_success', { count: names.length }), {
+                style: toastStyle,
+            });
+            close();
+        } catch (error) {
+            toast.error(`${error}`, { style: toastStyle });
+        } finally {
+            setAddingProcesses(false);
+        }
+    }
 
     function keyDown(e, setKey) {
         e.preventDefault();
@@ -304,6 +393,68 @@ export default function Hotkey() {
                     )}
                 </Row>
             </Section>
+            <Section
+                name={t('config.hotkey.section.processes')}
+                note={t('config.hotkey.section.processes_note')}
+            >
+                <Row
+                    label={t('config.hotkey.suppressed_processes')}
+                    desc={t('config.hotkey.suppressed_processes_desc')}
+                >
+                    {suppressedProcesses !== null && (
+                        <div className='flex w-[300px] flex-col items-stretch gap-2'>
+                            <TextField
+                                aria-label={t('config.hotkey.suppressed_processes')}
+                                value={processText}
+                                onChange={setProcessText}
+                            >
+                                <TextArea
+                                    fullWidth
+                                    rows={4}
+                                    placeholder={t('config.hotkey.suppressed_processes_placeholder')}
+                                />
+                            </TextField>
+                            <Button
+                                size='sm'
+                                variant='outline'
+                                isDisabled={loadingProcesses || savingProcesses || addingProcesses}
+                                onPress={openProcessPicker}
+                            >
+                                {loadingProcesses
+                                    ? t('config.hotkey.process_picker_loading')
+                                    : t('config.hotkey.process_picker_open')}
+                            </Button>
+                            <div className='flex items-center justify-between gap-3'>
+                                <span
+                                    className={`flat-meta ${hotkeysSuspended ? 'text-accent' : ''}`}
+                                    role='status'
+                                >
+                                    {hotkeysSuspended
+                                        ? t('config.hotkey.suppression_active')
+                                        : t('config.hotkey.suppression_inactive')}
+                                </span>
+                                <Button
+                                    size='sm'
+                                    variant='primary'
+                                    isDisabled={savingProcesses || addingProcesses}
+                                    onPress={saveSuppressedProcesses}
+                                >
+                                    {t('common.save')}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </Row>
+            </Section>
+            <ProcessPicker
+                isOpen={pickerOpen}
+                processes={runningProcesses}
+                selected={(suppressedProcesses ?? []).map((name) => name.toLocaleLowerCase())}
+                loading={loadingProcesses}
+                busy={addingProcesses}
+                onOpenChange={setPickerOpen}
+                onSubmit={addPickedProcesses}
+            />
         </>
     );
 }

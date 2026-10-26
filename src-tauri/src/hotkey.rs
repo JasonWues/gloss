@@ -2,10 +2,10 @@ use crate::config::{get, set};
 use crate::window::{
     input_translate, ocr_recognize, ocr_translate, selection_replace, selection_translate,
 };
-use crate::APP;
+use crate::{LockExt, APP};
 use log::{info, warn};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -19,6 +19,17 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 // One session at a time is enough anyway: the window the user asked for is
 // already on its way.
 static HOTKEY_SESSION: AtomicBool = AtomicBool::new(false);
+
+// Process suppression and the settings page both change the same OS-global
+// registrations. One lock makes unregister/register pairs atomic with respect
+// to each other; the atomic lets a callback cheaply reject an event already in
+// flight when suppression begins.
+static HOTKEY_REGISTRATION_LOCK: Mutex<()> = Mutex::new(());
+static HOTKEYS_SUSPENDED: AtomicBool = AtomicBool::new(false);
+
+pub fn hotkeys_suspended() -> bool {
+    HOTKEYS_SUSPENDED.load(Ordering::SeqCst)
+}
 
 // Holds the claim on `HOTKEY_SESSION` until the handler it belongs to is done,
 // including when that handler is dropped before it ever runs.
@@ -95,7 +106,7 @@ where
             hotkey.as_str(),
             move |app, _shortcut, event| {
                 // v2 fires on both press and release, only react to the press
-                if event.state != ShortcutState::Pressed {
+                if event.state != ShortcutState::Pressed || hotkeys_suspended() {
                     return;
                 }
                 let Some(session) = Session::begin() else {
@@ -121,8 +132,8 @@ where
     Ok(())
 }
 
-// Register global shortcuts
-pub fn register_shortcut(shortcut: &str) -> Result<(), String> {
+// Register global shortcuts. The caller must hold HOTKEY_REGISTRATION_LOCK.
+fn register_shortcut_unlocked(shortcut: &str) -> Result<(), String> {
     let app_handle = APP.get().unwrap();
     match shortcut {
         "hotkey_selection_translate" => register(
@@ -164,8 +175,56 @@ pub fn register_shortcut(shortcut: &str) -> Result<(), String> {
     Ok(())
 }
 
+pub fn register_shortcut(shortcut: &str) -> Result<(), String> {
+    let _guard = HOTKEY_REGISTRATION_LOCK.lock_recover();
+    if hotkeys_suspended() {
+        info!("Ignoring shortcut registration while process suppression is active");
+        return Ok(());
+    }
+    register_shortcut_unlocked(shortcut)
+}
+
+/// Apply the process blocklist. Restoration first clears all registrations so
+/// a failed, partially restored attempt can safely be retried one second later.
+pub fn set_hotkeys_suspended(app_handle: &AppHandle, suspended: bool) -> Result<(), String> {
+    let _guard = HOTKEY_REGISTRATION_LOCK.lock_recover();
+    if suspended {
+        HOTKEYS_SUSPENDED.store(true, Ordering::SeqCst);
+        if let Err(error) = app_handle.global_shortcut().unregister_all() {
+            HOTKEYS_SUSPENDED.store(false, Ordering::SeqCst);
+            return Err(error.to_string());
+        }
+        return Ok(());
+    }
+
+    app_handle
+        .global_shortcut()
+        .unregister_all()
+        .map_err(|error| error.to_string())?;
+    register_shortcut_unlocked("all")?;
+    HOTKEYS_SUSPENDED.store(false, Ordering::SeqCst);
+    Ok(())
+}
+
 #[tauri::command]
 pub fn register_shortcut_by_frontend(name: &str, shortcut: &str) -> Result<(), String> {
+    let _guard = HOTKEY_REGISTRATION_LOCK.lock_recover();
+    if hotkeys_suspended() {
+        // Save the explicit value here as well as in useConfig: the latter is
+        // debounced, and restoration must not be able to read the previous
+        // shortcut if a blocked process exits within that debounce window.
+        if matches!(
+            name,
+            "hotkey_selection_translate"
+                | "hotkey_selection_replace"
+                | "hotkey_input_translate"
+                | "hotkey_ocr_recognize"
+                | "hotkey_ocr_translate"
+        ) {
+            set(name, shortcut);
+        }
+        return Ok(());
+    }
     let app_handle = APP.get().unwrap();
     match name {
         "hotkey_selection_translate" => register(

@@ -8,6 +8,7 @@ mod config;
 mod edge_tts;
 mod error;
 mod hotkey;
+mod hotkey_suppression;
 mod lang_detect;
 mod ocr_layout;
 mod proxy;
@@ -25,6 +26,10 @@ use cmd::*;
 use config::*;
 use edge_tts::{edge_tts, edge_tts_voices};
 use hotkey::*;
+use hotkey_suppression::{
+    get_hotkey_suppression_status, list_running_processes, start_hotkey_suppression,
+    update_hotkey_suppressed_processes,
+};
 use lang_detect::*;
 use ocr_layout::system_ocr_layout;
 use log::{error, info, warn};
@@ -217,6 +222,7 @@ fn main() {
                         .show();
                 }
             }
+            start_hotkey_suppression(app.handle().clone());
             if let Err(e) = apply_proxy() {
                 warn!("Failed to apply the proxy setting: {e}");
             }
@@ -259,6 +265,9 @@ fn main() {
             run_binary,
             open_devtools,
             register_shortcut_by_frontend,
+            update_hotkey_suppressed_processes,
+            list_running_processes,
+            get_hotkey_suppression_status,
             update_tray,
             updater_window,
             screenshot,
