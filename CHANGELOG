@@ -1,9 +1,16 @@
-## 4.5.2 (2026-09-17)
+## 4.6.0 (2026-10-26)
 
-One fix, and it is the kind that ends the session: a hotkey pressed while the
-previous one was still opening its window deadlocked the main thread, taking
-the windows, the tray menu and the exit path down with it.
+One feature, and it is the kind you need once: Gloss owns its shortcuts
+system-wide, which is exactly what you do not want when the same key is also a
+control inside a game or an editor.
 
-### Bugs fixed:
+### New:
 
--   **A global shortcut pressed while the previous one was still starting no longer freezes the application.** The plugin that owns the shortcuts answers a key press while holding the mutex over its shortcut table, and that lock stays held for the whole of the handler it calls — and here that is a long time, because the handler builds the screenshot overlay and WebView2's startup waits by pumping messages on the main thread. The second key press was therefore delivered *inside* the first one, re-entered the same handler, and locked a mutex the thread was already holding. `std::sync::Mutex` is not reentrant, so it waited for itself and never came back: no overlay, no tray, no way out but Task Manager. Hotkeys are now answered first and run as their own event-loop message, which hands the lock back before anything can pump; a press that arrives while a session is still starting is ignored and logged rather than starting a second window on top of one that is half built
+-   **Application exceptions for the global shortcuts.** Settings → Hotkey now takes a list of executable names, and while any of them is running every Gloss shortcut is unregistered — not merely ignored, so the application gets the key — and they come back when the last match exits. Matching is on the process name, exact and case-insensitive: a path pasted in is reduced to its basename, and `game` does not match `my-game`. The list can be typed, but "Choose running apps" opens what is running right now, searchable, with the instance count per name and the ones already listed marked instead of offered twice. Picking a process saves immediately, including any line typed into the box but not yet saved
+-   The page says whether the shortcuts are suspended at this moment, and follows the change when the application starts or exits without needing a reload
+
+### Internal:
+
+-   the process list is polled once a second, and only while the exception list is non-empty — nothing is enumerated for a user who configures none — and only process names are refreshed, never CPU, memory, command lines or environment
+-   suppression, the settings page's unregister/register pair and a hotkey callback now share one registration lock. Without it, saving a shortcut mid-transition could leave it live while the monitor already considered everything suspended; an edit made while suspended is written to the store by the command itself rather than by the debounced hook, so a restore one tick later still reads it
+-   `sysinfo` is pinned to `=0.36.1`, the last release whose MSRV is 1.75; 0.39 requires Rust 1.95, which the Linux and macOS build images do not have
